@@ -13,6 +13,7 @@ EN:
   exit: "Exit"
   enable_rpc: "Enable Rich Presence"
   user: "User {}"
+  open_profile: "Open Last.fm Profile"
 TR:
   pylast_ws_error: "Web servisinde bağlantı sorunu oluştu, bağlantı {} saniye sonra yeniden deneniyor."
   pylast_network_error: "Uygulama Last.fm sunucularıyla iletişim kuramadı, internet bağlantınızı kontrol edin!"
@@ -26,5 +27,6 @@ TR:
   err: "Hata"
   err_assets: "Assets klasörü bulunamadı."
   exit: "Çıkış"
-  enable_rpc: "Rick Presence'i Aktif et."
+  enable_rpc: "Rich Presence'i Aktif et."
   user: "Kullanıcı: {}"
+  open_profile: "Last.fm Profilini Aç"

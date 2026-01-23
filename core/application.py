@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import threading
+import webbrowser
 import time
 import sys
 import os
@@ -12,7 +13,8 @@ from PIL import Image
 from constants.project import (
     USERNAME, APP_NAME, 
     APP_ICON_PATH, 
-    TRACK_CHECK_INTERVAL, UPDATE_INTERVAL
+    TRACK_CHECK_INTERVAL, UPDATE_INTERVAL,
+    LASTFM_USER_URL
 )
 from utils.string_utils import messenger
 from api.lastfm.user.tracking import User
@@ -31,6 +33,12 @@ class App:
         logging.info("Exiting application.")
         icon.stop()
         sys.exit()
+
+    def open_profile(self, icon, item):
+        """Opens the user's Last.fm profile in the default browser."""
+        url = LASTFM_USER_URL.format(username=USERNAME)
+        webbrowser.open(url)
+        logging.info(f"Opened Last.fm profile: {url}")
 
     def get_directory(self):
         """Returns the project root directory."""
@@ -55,7 +63,8 @@ class App:
         directory = self.get_directory()
         icon_img = self.load_icon(directory)
         menu_icon = Menu(
-            MenuItem(messenger('user', USERNAME), None),
+            MenuItem(messenger('user', USERNAME), None, enabled=False),
+            MenuItem(messenger('open_profile'), self.open_profile),
             Menu.SEPARATOR,
             MenuItem(messenger('exit'), self.exit_app)
         )
