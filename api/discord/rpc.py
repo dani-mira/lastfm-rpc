@@ -5,7 +5,7 @@ import logging
 from api.lastfm.user.library import get_library_data
 from api.lastfm.user.profile import get_user_data
 from pypresence import Presence, exceptions
-from helpers.url_utils import url_encoder
+from utils.url_utils import url_encoder
 from constants.project import (
     CLIENT_ID, RETRY_INTERVAL, 
     DAY_MODE_COVER, NIGHT_MODE_COVER,

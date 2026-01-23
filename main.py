@@ -14,7 +14,7 @@ from constants.project import (
     APP_ICON_PATH, 
     TRACK_CHECK_INTERVAL, UPDATE_INTERVAL
 )
-from helpers.string_utils import messenger
+from utils.string_utils import messenger
 from api.lastfm.user.tracking import User
 from api.discord.rpc import DiscordRPC
 

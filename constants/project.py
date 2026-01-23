@@ -1,4 +1,4 @@
-from helpers.reader import load_config, load_translations
+from utils.reader import load_config, load_translations
 
 # Loaded from config.yaml
 USERNAME, API_KEY, API_SECRET, APP_LANG = load_config()
