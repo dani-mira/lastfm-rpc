@@ -92,7 +92,7 @@ class App:
 
         # Add Artist Scrobbles if available
         if self.rpc.current_artist and self.rpc.artist_scrobbles > 0:
-            stats_text = messenger('artist_scrobbles', self.rpc.current_artist, self.rpc.artist_scrobbles)
+            stats_text = messenger('artist_scrobbles', [self.rpc.current_artist, self.rpc.artist_scrobbles])
             menu_items.append(MenuItem(stats_text, None, enabled=False))
 
         menu_items.append(MenuItem(messenger('discord_status', status_detail), None, enabled=False))

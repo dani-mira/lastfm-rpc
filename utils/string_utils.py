@@ -4,6 +4,11 @@ def messenger(key, *args):
     try:
         if not args:
             return TRANSLATIONS[key]
+        
+        # If the first arg is a list or tuple and it's the only arg, unpack it
+        if len(args) == 1 and isinstance(args[0], (list, tuple)):
+            args = args[0]
+            
         return TRANSLATIONS[key].format(*(str(arg) for arg in args))
     except Exception as e:
         raise Exception(f'Error in messenger: {e}')
