@@ -64,7 +64,6 @@ class App:
         return Menu(
             MenuItem(messenger('user', USERNAME), self.open_profile),
             MenuItem(lambda item: self.current_track_name, None, enabled=False),
-            MenuItem(messenger('open_profile'), self.open_profile),
             Menu.SEPARATOR,
             MenuItem(messenger('exit'), self.exit_app)
         )
