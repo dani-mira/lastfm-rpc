@@ -75,35 +75,40 @@ class App:
             messagebox.showerror(messenger('err'), messenger('err_assets'))
             sys.exit(1)
 
-    def setup_tray_menu(self):
-        """Creates and returns the tray menu."""
+    def _get_dynamic_discord_status(self, item):
+        """Returns the current Discord status text for the menu."""
         is_connected = self.rpc.is_connected
-        
         if is_connected and self.rpc.connection_time:
             time_str = self.rpc.connection_time.strftime("%H:%M")
             status_detail = messenger('connected_with_time', time_str)
         else:
             status_detail = messenger('connected') if is_connected else messenger('disconnected')
-            
-        menu_items = [
-            MenuItem(messenger('user', USERNAME), self.open_profile),
-            MenuItem(lambda item: self.current_track_name, None, enabled=False),
-        ]
+        return messenger('discord_status', status_detail)
 
-        # Add Artist Scrobbles if available
+    def _get_dynamic_artist_stats(self, item):
+        """Returns the current artist scrobble stats for the menu."""
         if self.rpc.current_artist:
             count = self.rpc.artist_scrobbles if self.rpc.artist_scrobbles else "..."
-            stats_text = messenger('artist_scrobbles', [self.rpc.current_artist, count])
-            menu_items.append(MenuItem(stats_text, None, enabled=False))
+            return messenger('artist_scrobbles', [self.rpc.current_artist, count])
+        return "" # Hidden if returning empty string and handled below
 
-        menu_items.append(MenuItem(messenger('discord_status', status_detail), None, enabled=False))
-        menu_items.extend([
+    def setup_tray_menu(self):
+        """Creates and returns the tray menu with dynamic items."""
+        return Menu(
+            MenuItem(messenger('user', USERNAME), self.open_profile),
+            MenuItem(lambda item: self.current_track_name, None, enabled=False),
+            # Use visible=lambda to hide scrobbles when not available
+            MenuItem(
+                self._get_dynamic_artist_stats, 
+                None, 
+                enabled=False, 
+                visible=lambda item: self.rpc.current_artist is not None
+            ),
+            MenuItem(self._get_dynamic_discord_status, None, enabled=False),
             Menu.SEPARATOR,
             MenuItem(messenger('debug_mode'), self.toggle_debug, checked=lambda item: self.debug_enabled),
             MenuItem(messenger('exit'), self.exit_app)
-        ])
-        
-        return Menu(*menu_items)
+        )
 
     def setup_tray_icon(self):
         """Sets up the initial system tray icon."""
@@ -155,9 +160,8 @@ class App:
                         
                         logger.info(f"Status: {self.current_track_name} | Discord: {self._rpc_connected}")
                         
-                        # Update tooltip and menu
+                        # Update tooltip info (safer than replacing the whole menu)
                         self.icon_tray.title = f"{APP_NAME}\n{new_track_display}"
-                        self.icon_tray.menu = self.setup_tray_menu()
                     else:
                         logger.debug(f"Polling: {formatted_track}")
                     
@@ -168,26 +172,34 @@ class App:
                         self._rpc_connected = self.rpc.is_connected
                         logger.info(f"Tray Update: No track detected | Discord: {self._rpc_connected}")
                         self.icon_tray.title = f"{APP_NAME}\n{self.current_track_name}"
-                        self.icon_tray.menu = self.setup_tray_menu()
                     self.rpc.disable()
             except Exception as e:
                 logger.error(f"Unexpected error in RPC loop: {e}", exc_info=True)
             time.sleep(UPDATE_INTERVAL)
 
-    def run(self):
-        """Starts the system tray application and RPC thread."""
-        logger.info("Starting RPC thread...")
-        self.rpc_thread.start()
-        
-        logger.info("Starting system tray icon...")
+    def _on_setup(self, icon):
+        """Callback to start backend tasks once the icon is running."""
+        # Show a notification safely
         try:
-            # Show a notification when the icon starts
-            self.icon_tray.visible = True
-            self.icon_tray.notify(
+            icon.visible = True
+            icon.notify(
                 messenger('starting_rpc'),
                 messenger('user', USERNAME)
             )
-            self.icon_tray.run()
+        except Exception as e:
+            logger.warning(f"Failed to send startup notification: {e}")
+
+        # Start the background thread
+        logger.info("Starting RPC background thread...")
+        self.rpc_thread.start()
+
+    def run(self):
+        """Starts the system tray application."""
+        logger.info("Starting system tray icon...")
+        try:
+            # icon.run is blocking. The setup argument runs a function in a new thread
+            # or after initialization depending on the platform.
+            self.icon_tray.run(setup=self._on_setup)
         except Exception as e:
             logger.error(f"System tray icon failed to run: {e}", exc_info=True)
         finally:
