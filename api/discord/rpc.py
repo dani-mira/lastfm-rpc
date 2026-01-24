@@ -83,7 +83,7 @@ class DiscordRPC:
         
         for line_key in lines:
             line = f'{lines[line_key]} '
-            if line_key == 'theme' or line_key == 'artist_scrobbles' or line_key == 'first_time':
+            if line_key in ['theme', 'artist_scrobbles', 'first_time']:
                 # Processing logic for large image lines
                 if len(lines) == 1: 
                     result_text = line
@@ -151,31 +151,38 @@ class DiscordRPC:
             # if the track is the same as the last track, don't update the status
             return
 
-        # if the track is different, update the status
+        # Pre-process status flags
         album_bool = album is not None
         time_remaining_bool = time_remaining > 0
         if time_remaining_bool:
             time_remaining = float(str(time_remaining)[0:3])
 
-        logging.info(f'Album: {album}')
-        logging.info(f'Time Remaining: {time_remaining_bool} - {time_remaining}')
-        logging.info(f"Now Playing: {track}")
+        logging.info(f'Album: {album} | Time Remaining: {time_remaining_bool} - {time_remaining} | Now Playing: {track}')
 
         self.start_time = datetime.datetime.now().timestamp()
         self.last_track = track
         track_artist_album = f'{artist} - {album}'
 
-        # Prepare Buttons via helper
-        rpc_buttons = self._prepare_buttons(username, artist, title, album)
-
-        # Get User and Library Data
+        # 1. Fetch Data
         user_data = get_user_data(username)
         if not user_data:
+            logging.error(f"User data not found for {username}")
             return
+        
+        logging.info(f"User data found for {username}")
+        logging.debug(f"User data: {user_data}")
 
-        #print(json.dumps(user_data, indent=2))
         library_data = get_library_data(username, artist, title)
-        #print(json.dumps(library_data, indent=2))
+        if not library_data:
+            logging.error(f"Library data not found for {username}")
+            return
+        
+        logging.info(f"Library data found for {username}")
+        logging.debug(f"Library data: {library_data}")
+
+        # 2. Prepare Display Data
+        rpc_buttons = self._prepare_buttons(username, artist, title, album)
+
 
         # Unpack User Info
         user_display_name = user_data["display_name"]
