@@ -137,9 +137,9 @@ class App:
                     formatted_track = f"{artist} - {title}"
                     new_track_display = messenger('now_playing', formatted_track)
                     
-                    # 1. Update internal state and UI IMMEDIATELY
-                    # Connection check happens very fast
-                    self.rpc.enable() 
+                    # 1. IMMEDIATE UI UPDATE
+                    # This part is lightning fast as it only checks variables
+                    self.rpc.enable() # Fast connection check
                     
                     has_track_changed = self.current_track_name != new_track_display
                     has_conn_changed = self._rpc_connected != self.rpc.is_connected
@@ -148,13 +148,16 @@ class App:
                         self.current_track_name = new_track_display
                         self._rpc_connected = self.rpc.is_connected
                         
+                        # LOG FIRST, so even if the next steps take time, we know it's detected
                         logger.info(f"Status: {self.current_track_name} | Discord: {self._rpc_connected}")
                         
-                        # Update tooltip info instantly
+                        # Update hover title instantly
                         self.icon_tray.title = f"{APP_NAME}\n{new_track_display}"
-                    
-                    # 2. Now perform the heavy status update in the background (within the loop)
-                    # This won't block the UI state we just set
+                    else:
+                        logger.debug(f"Polling: {formatted_track}")
+
+                    # 2. HEAVY DATA UPDATE (NETWORK BOUND)
+                    # This can take 5+ seconds, but UI is already updated above
                     self.rpc.update_status(
                         str(current_track),
                         str(title),
@@ -164,9 +167,6 @@ class App:
                         USERNAME,
                         artwork
                     )
-
-                    if not (has_track_changed or has_conn_changed):
-                        logger.debug(f"Polling: {formatted_track}")
                     
                     time.sleep(TRACK_CHECK_INTERVAL)
                 else:
