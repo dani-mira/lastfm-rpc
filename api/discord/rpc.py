@@ -158,8 +158,8 @@ class DiscordRPC:
         if len(title) < 2:
             title = title + ' '
 
-        if self.last_track == track:
-            # if the track is the same as the last track, don't update the status
+        if self.last_track == track and self.current_artist is not None:
+            # if the track is the same as the last track AND we already have stats, don't update
             return
 
         # Pre-process status flags
