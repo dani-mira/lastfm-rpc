@@ -88,21 +88,25 @@ class App:
     def _get_dynamic_artist_stats(self, item):
         """Returns the current artist scrobble stats for the menu."""
         if self.rpc.current_artist:
-            count = self.rpc.artist_scrobbles if self.rpc.artist_scrobbles else "..."
+            count = self.rpc.artist_scrobbles if self.rpc.artist_scrobbles is not None else "..."
             return messenger('artist_scrobbles', [self.rpc.current_artist, count])
-        return "" # Hidden if returning empty string and handled below
+        
+        # Fallback if track is detected but stats (artist name) not yet confirmed
+        if self.current_track_name != messenger('no_track'):
+            return "... İstatistikler bekleniyor"
+        return ""
 
     def setup_tray_menu(self):
         """Creates and returns the tray menu with dynamic items."""
         return Menu(
             MenuItem(messenger('user', USERNAME), self.open_profile),
             MenuItem(lambda item: self.current_track_name, None, enabled=False),
-            # Use visible=lambda to hide scrobbles when not available
+            # Display stats item if any track is or was playing
             MenuItem(
                 self._get_dynamic_artist_stats, 
                 None, 
-                enabled=False, 
-                visible=lambda item: self.rpc.current_artist is not None
+                enabled=False,
+                visible=lambda item: self.current_track_name != messenger('no_track')
             ),
             MenuItem(self._get_dynamic_discord_status, None, enabled=False),
             Menu.SEPARATOR,
