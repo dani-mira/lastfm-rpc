@@ -18,17 +18,10 @@ class DiscordRPC:
         """
         Initializes the DiscordRPC class.
         
-        Sets up the Presence object for Discord Rich Presence and initializes
-        state variables.
+        Sets up the state variables. The actual Presence object is initialized
+        when enable() is called.
         """
-        while True:
-            try:
-                self.RPC = Presence(CLIENT_ID)
-                break
-            except exceptions.DiscordNotFound as e:
-                logging.error(f"Discord not found: {e}")
-                time.sleep(RETRY_INTERVAL)
-
+        self.RPC = None
         self._enabled = False
         self._disabled = True
         self.start_time = None
@@ -37,14 +30,20 @@ class DiscordRPC:
     def _connect(self):
         """
         Establishes a connection to Discord.
-        
-        Connects to Discord if not already connected and updates state variables.
         """
         if not self._enabled:
-            self.RPC.connect()  # Establish the connection to Discord
-            logging.info('Connected with Discord')
-            self._enabled = True
-            self._disabled = False
+            try:
+                if self.RPC is None:
+                    self.RPC = Presence(CLIENT_ID)
+                
+                self.RPC.connect()
+                logging.info('Connected with Discord')
+                self._enabled = True
+                self._disabled = False
+            except exceptions.DiscordNotFound:
+                logging.warning('Discord not found, will retry in next cycle')
+            except Exception as e:
+                logging.error(f'Error connecting to Discord: {e}')
 
     def _disconnect(self):
         """

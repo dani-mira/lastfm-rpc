@@ -12,8 +12,10 @@ EN:
   err_assets: "Assets folder not found."
   exit: "Exit"
   enable_rpc: "Enable Rich Presence"
-  user: "User {}"
+  user: "User: {}"
   open_profile: "Open Last.fm Profile"
+  now_playing: "Now Playing: {}"
+  no_track: "No track playing"
 TR:
   pylast_ws_error: "Web servisinde bağlantı sorunu oluştu, bağlantı {} saniye sonra yeniden deneniyor."
   pylast_network_error: "Uygulama Last.fm sunucularıyla iletişim kuramadı, internet bağlantınızı kontrol edin!"
@@ -30,3 +32,5 @@ TR:
   enable_rpc: "Rich Presence'i Aktif et."
   user: "Kullanıcı: {}"
   open_profile: "Last.fm Profilini Aç"
+  now_playing: "Şu An Çalıyor: {}"
+  no_track: "Çalan şarkı yok"

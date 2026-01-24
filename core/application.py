@@ -23,6 +23,7 @@ from api.discord.rpc import DiscordRPC
 class App:
     def __init__(self):
         self.rpc = DiscordRPC()
+        self.current_track_name = messenger('no_track')
         self.icon_tray = self.setup_tray_icon()
         self.loop = asyncio.new_event_loop()
         self.rpc_thread = threading.Thread(target=self.run_rpc, args=(self.loop,))
@@ -58,21 +59,26 @@ class App:
             messagebox.showerror(messenger('err'), messenger('err_assets'))
             sys.exit(1)
 
-    def setup_tray_icon(self):
-        """Sets up the system tray icon with menu options."""
-        directory = self.get_directory()
-        icon_img = self.load_icon(directory)
-        menu_icon = Menu(
-            MenuItem(messenger('user', USERNAME), None, enabled=False),
+    def setup_tray_menu(self):
+        """Creates and returns the tray menu."""
+        return Menu(
+            MenuItem(messenger('user', USERNAME), self.open_profile),
+            MenuItem(lambda item: self.current_track_name, None, enabled=False),
             MenuItem(messenger('open_profile'), self.open_profile),
             Menu.SEPARATOR,
             MenuItem(messenger('exit'), self.exit_app)
         )
+
+    def setup_tray_icon(self):
+        """Sets up the initial system tray icon."""
+        directory = self.get_directory()
+        icon_img = self.load_icon(directory)
+        
         return Icon(
             APP_NAME,
             icon=icon_img,
             title=APP_NAME,
-            menu=menu_icon
+            menu=self.setup_tray_menu()
         )
 
     def run_rpc(self, loop):
@@ -84,8 +90,19 @@ class App:
         while True:
             try:
                 current_track, data = user.now_playing()
+                logging.debug(f"Last.fm Check - Track: {current_track}, Data identified: {data is not None}")
+                
                 if data:
                     title, artist, album, artwork, time_remaining = data
+                    formatted_track = f"{artist} - {title}"
+                    new_track_display = messenger('now_playing', formatted_track)
+                    
+                    if self.current_track_name != new_track_display:
+                        self.current_track_name = new_track_display
+                        logging.info(f"Status: {self.current_track_name}")
+                        # Force menu refresh
+                        self.icon_tray.menu = self.setup_tray_menu()
+                    
                     self.rpc.enable()
                     self.rpc.update_status(
                         str(current_track),
@@ -98,9 +115,13 @@ class App:
                     )
                     time.sleep(TRACK_CHECK_INTERVAL)
                 else:
+                    if self.current_track_name != messenger('no_track'):
+                        self.current_track_name = messenger('no_track')
+                        logging.info("Tray Update: No track detected")
+                        self.icon_tray.menu = self.setup_tray_menu()
                     self.rpc.disable()
             except Exception as e:
-                logging.error(f"Unexpected error: {e}")
+                logging.error(f"Unexpected error in RPC loop: {e}", exc_info=True)
             time.sleep(UPDATE_INTERVAL)
 
     def run(self):
