@@ -66,6 +66,9 @@ class DiscordRPC:
             self.RPC.clear()  # Clear the current RPC state
             self.RPC.close()  # Close the connection to Discord
             self.connection_time = None
+            self.last_track = None # Reset so update triggers on reconnect
+            self.current_artist = None
+            self.artist_scrobbles = None
             logger.info('Disconnected from Discord due to inactivity on Last.fm')
             self._disabled = True
             self._enabled = False
@@ -231,6 +234,7 @@ class DiscordRPC:
         state = 'with album' if album_bool else 'without album'
         time_state = 'time' if time_remaining_bool else 'no time'
         logger.debug(f'Update state: {state}, {time_state}')
+        logger.debug(f"RPC update_assets: {update_assets}") # Debug artwork URL
 
         if self.RPC:
             try:

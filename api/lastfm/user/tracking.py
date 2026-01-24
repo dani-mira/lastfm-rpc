@@ -12,6 +12,8 @@ class User:
         self.username = username
         self.lastfm_user = network.get_user(username)
         self.cooldown = cooldown
+        self.last_track = None
+        self.last_track_info = None
 
     def _get_current_track(self):
         try:
@@ -41,12 +43,27 @@ class User:
             logger.error(f'pylast.WSError: {e}')
         except pylast.NetworkError:
             logger.error(TRANSLATIONS['pylast_network_error'])
+        if artwork:
+            logger.debug(f"Fetched artwork URL: {artwork}")
+        else:
+            logger.debug("No artwork found for track.")
         return title, artist, album, artwork, time_remaining
 
     def now_playing(self):
         current_track = self._get_current_track()
+        
         if current_track:
-            return current_track, self._get_track_info(current_track)
+            # If track is same as last time, return cached info
+            if self.last_track and str(current_track) == str(self.last_track):
+                return current_track, self.last_track_info
+                
+            # New track, fetch info
+            info = self._get_track_info(current_track)
+            self.last_track = current_track
+            self.last_track_info = info
+            return current_track, info
         else:
+            self.last_track = None
+            self.last_track_info = None
             logger.debug(TRANSLATIONS['no_song'].format(self.cooldown))
             return current_track, None
