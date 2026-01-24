@@ -1,3 +1,4 @@
+import logging
 from core.application import App
 from utils.logging_config import setup_logging
 
