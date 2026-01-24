@@ -1,12 +1,8 @@
-import logging
 from core.application import App
+from utils.logging_config import setup_logging
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, 
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    force=True
-)
+# Configure enhanced logging
+setup_logging(level=logging.INFO)
 
 if __name__ == "__main__":
     try:
