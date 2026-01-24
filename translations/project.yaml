@@ -19,6 +19,7 @@ EN:
   discord_status: "Discord: {}"
   connected: "Connected"
   connected_with_time: "Connected at {}"
+  artist_scrobbles: "{} - {} Scrobbles"
   disconnected: "Disconnected"
 TR:
   pylast_ws_error: "Web servisinde bağlantı sorunu oluştu, bağlantı {} saniye sonra yeniden deneniyor."
@@ -41,4 +42,5 @@ TR:
   discord_status: "Discord: {}"
   connected: "Bağlı"
   connected_with_time: "Bağlı (Saat: {})"
+  artist_scrobbles: "{} - {} Dinleme"
   disconnected: "Bağlı Değil"

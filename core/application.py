@@ -85,14 +85,24 @@ class App:
         else:
             status_detail = messenger('connected') if is_connected else messenger('disconnected')
             
-        return Menu(
+        menu_items = [
             MenuItem(messenger('user', USERNAME), self.open_profile),
             MenuItem(lambda item: self.current_track_name, None, enabled=False),
-            MenuItem(messenger('discord_status', status_detail), None, enabled=False),
+        ]
+
+        # Add Artist Scrobbles if available
+        if self.rpc.current_artist and self.rpc.artist_scrobbles > 0:
+            stats_text = messenger('artist_scrobbles', self.rpc.current_artist, self.rpc.artist_scrobbles)
+            menu_items.append(MenuItem(stats_text, None, enabled=False))
+
+        menu_items.append(MenuItem(messenger('discord_status', status_detail), None, enabled=False))
+        menu_items.extend([
             Menu.SEPARATOR,
             MenuItem(messenger('debug_mode'), self.toggle_debug, checked=lambda item: self.debug_enabled),
             MenuItem(messenger('exit'), self.exit_app)
-        )
+        ])
+        
+        return Menu(*menu_items)
 
     def setup_tray_icon(self):
         """Sets up the initial system tray icon."""

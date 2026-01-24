@@ -29,6 +29,8 @@ class DiscordRPC:
         self.start_time = None
         self.last_track = None
         self.connection_time = None
+        self.current_artist = None
+        self.artist_scrobbles = 0
 
     @property
     def is_connected(self):
@@ -210,6 +212,9 @@ class DiscordRPC:
         # Call the helper for text processing
         rpc_small_image_text = self._format_image_text(small_image_lines, RPC_LINE_LIMIT, RPC_XCHAR)
         rpc_large_image_text = self._format_image_text(large_image_lines, RPC_LINE_LIMIT, RPC_XCHAR)
+
+        self.current_artist = artist
+        self.artist_scrobbles = artist_count
 
         update_assets = {
             'details': title,
