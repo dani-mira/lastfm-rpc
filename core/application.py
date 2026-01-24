@@ -77,12 +77,18 @@ class App:
 
     def setup_tray_menu(self):
         """Creates and returns the tray menu."""
-        discord_status_text = messenger('connected') if self.rpc.is_connected else messenger('disconnected')
+        is_connected = self.rpc.is_connected
         
+        if is_connected and self.rpc.connection_time:
+            time_str = self.rpc.connection_time.strftime("%H:%M")
+            status_detail = messenger('connected_with_time', time_str)
+        else:
+            status_detail = messenger('connected') if is_connected else messenger('disconnected')
+            
         return Menu(
             MenuItem(messenger('user', USERNAME), self.open_profile),
             MenuItem(lambda item: self.current_track_name, None, enabled=False),
-            MenuItem(messenger('discord_status', discord_status_text), None, enabled=False),
+            MenuItem(messenger('discord_status', status_detail), None, enabled=False),
             Menu.SEPARATOR,
             MenuItem(messenger('debug_mode'), self.toggle_debug, checked=lambda item: self.debug_enabled),
             MenuItem(messenger('exit'), self.exit_app)

@@ -18,6 +18,7 @@ EN:
   debug_mode: "Debug Mode"
   discord_status: "Discord: {}"
   connected: "Connected"
+  connected_with_time: "Connected at {}"
   disconnected: "Disconnected"
 TR:
   pylast_ws_error: "Web servisinde bağlantı sorunu oluştu, bağlantı {} saniye sonra yeniden deneniyor."
@@ -39,4 +40,5 @@ TR:
   debug_mode: "Hata Ayıklama Modu"
   discord_status: "Discord: {}"
   connected: "Bağlı"
+  connected_with_time: "Bağlı (Saat: {})"
   disconnected: "Bağlı Değil"

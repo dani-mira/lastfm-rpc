@@ -28,6 +28,7 @@ class DiscordRPC:
         self._disabled = True
         self.start_time = None
         self.last_track = None
+        self.connection_time = None
 
     @property
     def is_connected(self):
@@ -44,6 +45,7 @@ class DiscordRPC:
                     self.RPC = Presence(CLIENT_ID)
                 
                 self.RPC.connect()
+                self.connection_time = datetime.datetime.now()
                 logger.info('Connected with Discord')
                 self._enabled = True
                 self._disabled = False
@@ -61,6 +63,7 @@ class DiscordRPC:
         if not self._disabled and self.RPC:
             self.RPC.clear()  # Clear the current RPC state
             self.RPC.close()  # Close the connection to Discord
+            self.connection_time = None
             logger.info('Disconnected from Discord due to inactivity on Last.fm')
             self._disabled = True
             self._enabled = False
