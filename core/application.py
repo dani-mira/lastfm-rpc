@@ -26,6 +26,7 @@ class App:
     def __init__(self):
         self.rpc = DiscordRPC()
         self.current_track_name = messenger('no_track')
+        self._rpc_connected = False
         self.debug_enabled = logging.getLogger().getEffectiveLevel() == logging.DEBUG
         self.icon_tray = self.setup_tray_icon()
         self.loop = asyncio.new_event_loop()
@@ -76,9 +77,12 @@ class App:
 
     def setup_tray_menu(self):
         """Creates and returns the tray menu."""
+        discord_status_text = messenger('connected') if self.rpc.is_connected else messenger('disconnected')
+        
         return Menu(
             MenuItem(messenger('user', USERNAME), self.open_profile),
             MenuItem(lambda item: self.current_track_name, None, enabled=False),
+            MenuItem(messenger('discord_status', discord_status_text), None, enabled=False),
             Menu.SEPARATOR,
             MenuItem(messenger('debug_mode'), self.toggle_debug, checked=lambda item: self.debug_enabled),
             MenuItem(messenger('exit'), self.exit_app)
@@ -111,11 +115,12 @@ class App:
                     formatted_track = f"{artist} - {title}"
                     new_track_display = messenger('now_playing', formatted_track)
                     
-                    if self.current_track_name != new_track_display:
+                    if self.current_track_name != new_track_display or self._rpc_connected != self.rpc.is_connected:
                         self.current_track_name = new_track_display
-                        logger.info(f"Status: {self.current_track_name}")
+                        self._rpc_connected = self.rpc.is_connected
+                        logger.info(f"Status: {self.current_track_name} | Discord: {self._rpc_connected}")
                         # Force menu refresh
-                        self.icon_tray.menu = self.setup_tray_icon()
+                        self.icon_tray.menu = self.setup_tray_menu()
                     else:
                         # Less noisy polling log for the same track
                         logger.debug(f"Polling: {formatted_track}")
@@ -132,9 +137,10 @@ class App:
                     )
                     time.sleep(TRACK_CHECK_INTERVAL)
                 else:
-                    if self.current_track_name != messenger('no_track'):
+                    if self.current_track_name != messenger('no_track') or self._rpc_connected != self.rpc.is_connected:
                         self.current_track_name = messenger('no_track')
-                        logger.info("Tray Update: No track detected")
+                        self._rpc_connected = self.rpc.is_connected
+                        logger.info(f"Tray Update: No track detected | Discord: {self._rpc_connected}")
                         self.icon_tray.menu = self.setup_tray_menu()
                     self.rpc.disable()
             except Exception as e:

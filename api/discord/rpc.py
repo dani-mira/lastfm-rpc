@@ -29,6 +29,11 @@ class DiscordRPC:
         self.start_time = None
         self.last_track = None
 
+    @property
+    def is_connected(self):
+        """Returns whether the RPC is currently connected and active."""
+        return self._enabled and not self._disabled
+
     def _connect(self):
         """
         Establishes a connection to Discord.

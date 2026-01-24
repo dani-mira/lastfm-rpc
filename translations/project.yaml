@@ -16,6 +16,9 @@ EN:
   now_playing: "Now Playing: {}"
   no_track: "No track playing"
   debug_mode: "Debug Mode"
+  discord_status: "Discord: {}"
+  connected: "Connected"
+  disconnected: "Disconnected"
 TR:
   pylast_ws_error: "Web servisinde bağlantı sorunu oluştu, bağlantı {} saniye sonra yeniden deneniyor."
   pylast_network_error: "Uygulama Last.fm sunucularıyla iletişim kuramadı, internet bağlantınızı kontrol edin!"
@@ -34,3 +37,6 @@ TR:
   now_playing: "Şu An Çalıyor: {}"
   no_track: "Çalan şarkı yok"
   debug_mode: "Hata Ayıklama Modu"
+  discord_status: "Discord: {}"
+  connected: "Bağlı"
+  disconnected: "Bağlı Değil"
