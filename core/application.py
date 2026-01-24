@@ -2,7 +2,6 @@ import asyncio
 import logging
 import threading
 import webbrowser
-import time
 import sys
 import os
 from tkinter import messagebox
@@ -32,6 +31,8 @@ class App:
         self.loop = asyncio.new_event_loop()
         self.rpc_thread = threading.Thread(target=self.run_rpc, args=(self.loop,))
         self.rpc_thread.daemon = True
+        self.update_event = threading.Event()
+        self.cached_track_data = None # Store (current_track, data) for forced updates
 
     def exit_app(self, icon, item):
         """Stops the system tray icon and exits the application."""
@@ -84,6 +85,57 @@ class App:
         else:
             status_detail = messenger('connected') if is_connected else messenger('disconnected')
         return messenger('discord_status', status_detail)
+        
+    def toggle_display_option(self, option):
+        """Toggles a display option for the Discord RPC."""
+        current = getattr(self.rpc, option)
+        setattr(self.rpc, option, not current)
+        # Force update on next cycle by resetting track
+        self.rpc.last_track = None 
+        if self.icon_tray:
+            self.icon_tray.menu = self.setup_tray_menu()
+            
+        logger.info(f"Toggled option '{option}' to {not current}. Triggering update.")
+        # Trigger immediate update
+        # Trigger immediate update
+        self.update_event.set()
+
+    def set_small_image_option(self, option):
+        """Sets the active small image source (Radio Button behavior)."""
+        # Define mutually exclusive options
+        options = ['use_custom_profile_image', 'use_default_icon', 'use_lastfm_icon']
+        
+        if option not in options:
+            return
+
+        # Disable all others, enable the selected one
+        for opt in options:
+            setattr(self.rpc, opt, opt == option)
+            
+        # Force update
+        self.rpc.last_track = None 
+        if self.icon_tray:
+            self.icon_tray.menu = self.setup_tray_menu()
+            
+        logger.info(f"Set small image source to '{option}'. Triggering update.")
+        self.update_event.set()
+
+    def set_large_image_option(self, show_scrobbles):
+        """Sets the mode for large image text (Radio Button behavior)."""
+        # If show_scrobbles is True, we show scrobbles. If False, we fall back to Album Name.
+        is_changing = self.rpc.show_artist_scrobbles_large != show_scrobbles
+        if not is_changing:
+            return
+
+        self.rpc.show_artist_scrobbles_large = show_scrobbles
+        
+        # Force update
+        self.rpc.last_track = None 
+        if self.icon_tray:
+            self.icon_tray.menu = self.setup_tray_menu()
+            
+        logger.info(f"Set large image mode to {'Scrobbles' if show_scrobbles else 'Album Name'}. Triggering update.")
+        self.update_event.set()
 
     def _get_dynamic_artist_stats(self, item):
         """Returns the current artist scrobble stats for the menu."""
@@ -110,6 +162,28 @@ class App:
             ),
             MenuItem(self._get_dynamic_discord_status, None, enabled=False),
             Menu.SEPARATOR,
+            
+            # Small Image Options
+            MenuItem(messenger('menu_small_image_options'), Menu(
+                MenuItem(messenger('menu_show_small_image'), lambda item: self.toggle_display_option('show_small_image'), checked=lambda item: self.rpc.show_small_image),
+                Menu.SEPARATOR,
+                MenuItem(messenger('menu_use_custom_profile_image'), lambda item: self.set_small_image_option('use_custom_profile_image'), checked=lambda item: self.rpc.use_custom_profile_image, enabled=self.rpc.show_small_image),
+                MenuItem(messenger('menu_use_default_icon'), lambda item: self.set_small_image_option('use_default_icon'), checked=lambda item: self.rpc.use_default_icon, enabled=self.rpc.show_small_image),
+                MenuItem(messenger('menu_use_lastfm_icon'), lambda item: self.set_small_image_option('use_lastfm_icon'), checked=lambda item: self.rpc.use_lastfm_icon, enabled=self.rpc.show_small_image),
+                Menu.SEPARATOR,
+                MenuItem(messenger('menu_show_username'), lambda item: self.toggle_display_option('show_username'), checked=lambda item: self.rpc.show_username, enabled=self.rpc.show_small_image),
+                MenuItem(messenger('menu_show_scrobbles'), lambda item: self.toggle_display_option('show_scrobbles'), checked=lambda item: self.rpc.show_scrobbles, enabled=self.rpc.show_small_image),
+                MenuItem(messenger('menu_show_artists'), lambda item: self.toggle_display_option('show_artists'), checked=lambda item: self.rpc.show_artists, enabled=self.rpc.show_small_image),
+                MenuItem(messenger('menu_show_loved'), lambda item: self.toggle_display_option('show_loved'), checked=lambda item: self.rpc.show_loved, enabled=self.rpc.show_small_image)
+            )),
+            
+            # Large Image Options
+            MenuItem(messenger('menu_large_image_options'), Menu(
+                MenuItem(messenger('menu_show_artist_scrobbles'), lambda item: self.set_large_image_option(True), checked=lambda item: self.rpc.show_artist_scrobbles_large),
+                MenuItem(messenger('menu_show_album_name'), lambda item: self.set_large_image_option(False), checked=lambda item: not self.rpc.show_artist_scrobbles_large)
+            )),
+            
+            Menu.SEPARATOR,
             MenuItem(messenger('debug_mode'), self.toggle_debug, checked=lambda item: self.debug_enabled),
             MenuItem(messenger('exit'), self.exit_app)
         )
@@ -126,6 +200,50 @@ class App:
             menu=self.setup_tray_menu()
         )
 
+    def _handle_active_track(self, current_track, data):
+        """Handle the case where a track is playing."""
+        title, artist, album, artwork, time_remaining = data
+        formatted_track = f"{artist} - {title}"
+        new_track_display = messenger('now_playing', formatted_track)
+        
+        # 1. IMMEDIATE UI UPDATE
+        self.rpc.enable() 
+        
+        has_track_changed = self.current_track_name != new_track_display
+        has_conn_changed = self._rpc_connected != self.rpc.is_connected
+        
+        if has_track_changed or has_conn_changed:
+            self.current_track_name = new_track_display
+            self._rpc_connected = self.rpc.is_connected
+            logger.info(f"Status: {self.current_track_name} | Discord: {self._rpc_connected}")
+            self.icon_tray.title = f"{APP_NAME}\n{new_track_display}"
+        else:
+            logger.debug(f"Polling: {formatted_track}")
+
+        # 2. HEAVY DATA UPDATE
+        self.rpc.update_status(
+            str(current_track),
+            str(title),
+            str(artist),
+            str(album),
+            time_remaining,
+            USERNAME,
+            artwork
+        )
+        
+        # 3. Refresh menu if changed
+        if has_track_changed or has_conn_changed:
+            self.icon_tray.menu = self.setup_tray_menu()
+
+    def _handle_no_track(self):
+        """Handle the case where no track is playing."""
+        if self.current_track_name != messenger('no_track') or self._rpc_connected != self.rpc.is_connected:
+            self.current_track_name = messenger('no_track')
+            self._rpc_connected = self.rpc.is_connected
+            logger.info(f"Tray Update: No track detected | Discord: {self._rpc_connected}")
+            self.icon_tray.title = f"{APP_NAME}\n{self.current_track_name}"
+        self.rpc.disable()
+
     def run_rpc(self, loop):
         """Runs the RPC updater in a loop."""
         logger.info(messenger('starting_rpc'))
@@ -133,72 +251,47 @@ class App:
         user = User(USERNAME)
 
         while True:
+            # Check if this iteration was triggered by an event (settings change)
+            is_forced_update = self.update_event.is_set()
+            self.update_event.clear()
+            
             try:
-                current_track, data = user.now_playing()
+                # If forced update and we have cached data, reuse it without polling Last.fm
+                if is_forced_update and self.cached_track_data:
+                    current_track, data = self.cached_track_data
+                else:
+                    # Normal poll cycle
+                    current_track, data = user.now_playing()
+                    if data:
+                        self.cached_track_data = (current_track, data)
                 
                 if data:
-                    title, artist, album, artwork, time_remaining = data
-                    formatted_track = f"{artist} - {title}"
-                    new_track_display = messenger('now_playing', formatted_track)
-                    
-                    # 1. IMMEDIATE UI UPDATE
-                    # This part is lightning fast as it only checks variables
-                    self.rpc.enable() # Fast connection check
-                    
-                    has_track_changed = self.current_track_name != new_track_display
-                    has_conn_changed = self._rpc_connected != self.rpc.is_connected
-                    
-                    if has_track_changed or has_conn_changed:
-                        self.current_track_name = new_track_display
-                        self._rpc_connected = self.rpc.is_connected
-                        
-                        # LOG FIRST, so even if the next steps take time, we know it's detected
-                        logger.info(f"Status: {self.current_track_name} | Discord: {self._rpc_connected}")
-                        
-                        # Update hover title instantly
-                        self.icon_tray.title = f"{APP_NAME}\n{new_track_display}"
-                    else:
-                        logger.debug(f"Polling: {formatted_track}")
-
-                    # 2. HEAVY DATA UPDATE (NETWORK BOUND)
-                    # This can take 5+ seconds, but UI is already updated above
-                    self.rpc.update_status(
-                        str(current_track),
-                        str(title),
-                        str(artist),
-                        str(album),
-                        time_remaining,
-                        USERNAME,
-                        artwork
-                    )
-                    
-                    # 3. Refresh menu again after stats are fetched to show scrobbles
-                    if has_track_changed or has_conn_changed:
-                        self.icon_tray.menu = self.setup_tray_menu()
-                    
-                    time.sleep(TRACK_CHECK_INTERVAL)
+                    self._handle_active_track(current_track, data)
+                    if self.update_event.wait(TRACK_CHECK_INTERVAL):
+                        continue # If event set, restart loop immediately
                 else:
-                    if self.current_track_name != messenger('no_track') or self._rpc_connected != self.rpc.is_connected:
-                        self.current_track_name = messenger('no_track')
-                        self._rpc_connected = self.rpc.is_connected
-                        logger.info(f"Tray Update: No track detected | Discord: {self._rpc_connected}")
-                        self.icon_tray.title = f"{APP_NAME}\n{self.current_track_name}"
-                    self.rpc.disable()
+                    self._handle_no_track()
+                    self.cached_track_data = None
+                    if self.update_event.wait(UPDATE_INTERVAL):
+                        continue
             except Exception as e:
                 logger.error(f"Unexpected error in RPC loop: {e}", exc_info=True)
-            time.sleep(UPDATE_INTERVAL)
+                if self.update_event.wait(UPDATE_INTERVAL):
+                    continue
+            
+            # Additional small sleep if needed to prevent hot loop in case of errors, 
+            # but wait() handles the interval. 
+            # Logic: If wait returns True (event set), we continue. 
+            # If wait returns False (timeout), loop continues naturally.
 
     def _on_setup(self, icon):
         """Callback to start backend tasks once the icon is running."""
         # Show a notification safely
         try:
             icon.visible = True
-            icon.notify(
-                messenger('starting_rpc'),
-                messenger('user', USERNAME)
-            )
+            # Startup notification removed as per request
         except Exception as e:
-            logger.warning(f"Failed to send startup notification: {e}")
+            logger.warning(f"Failed to set icon visibility: {e}")
 
         # Start the background thread
         logger.info("Starting RPC background thread...")

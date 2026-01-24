@@ -10,7 +10,8 @@ from constants.project import (
     CLIENT_ID, 
     DAY_MODE_COVER, NIGHT_MODE_COVER,
     RPC_LINE_LIMIT, RPC_XCHAR,
-    LASTFM_TRACK_URL_TEMPLATE, YT_MUSIC_SEARCH_TEMPLATE
+    LASTFM_TRACK_URL_TEMPLATE, YT_MUSIC_SEARCH_TEMPLATE,
+    DEFAULT_AVATAR_URL, LASTFM_ICON_URL
 )
 
 logger = logging.getLogger('rpc')
@@ -30,7 +31,26 @@ class DiscordRPC:
         self.last_track = None
         self.connection_time = None
         self.current_artist = None
+        self.connection_time = None
+        self.current_artist = None
         self.artist_scrobbles = 0
+        
+        # Display Options
+        self.show_scrobbles = True
+        self.show_artists = True
+        self.show_loved = True
+        self.show_small_image = True # Main toggle for small image area
+        self.use_custom_profile_image = True # Toggle between user avatar and default icon
+        self.use_default_icon = False # Toggle for default avatar fallback
+        self.use_lastfm_icon = False # Toggle for Last.fm icon fallback
+        self.show_username = True
+        
+        self.show_artist_scrobbles_large = True
+        
+        # Cache for forced updates
+        self.last_fetched_track = None
+        self.cached_user_data = None
+        self.cached_library_data = None
 
     @property
     def is_connected(self):
@@ -134,8 +154,9 @@ class DiscordRPC:
 
         if artist_count:
             # if the artist is in the library
-            track_count = library_data["track_count"]
-            large_image_lines["artist_scrobbles"] = f'Scrobbles: {artist_count}/{track_count}' if track_count else f'Scrobbles: {artist_count}'
+            if self.show_artist_scrobbles_large:
+                track_count = library_data["track_count"]
+                large_image_lines["artist_scrobbles"] = f'Scrobbles: {artist_count}/{track_count}' if track_count else f'Scrobbles: {artist_count}'
         else:
             large_image_lines['first_time'] = 'First time listening!'
             
@@ -176,23 +197,33 @@ class DiscordRPC:
         self.start_time = datetime.datetime.now().timestamp()
         self.last_track = track
         track_artist_album = f'{artist} - {album}'
-
-        # 1. Fetch Data
-        user_data = get_user_data(username)
-        if not user_data:
-            logger.error(f"User data not found for {username}")
-            return
         
-        logger.info(f"User data found for {username}")
-        logger.debug(f"User data: {user_data}")
-
-        library_data = get_library_data(username, artist, title)
-        if not library_data:
-            logger.error(f"Library data not found for {username}")
-            return
-        
-        logger.info(f"Library data found for {username}")
-        logger.debug(f"Library data: {library_data}")
+        # 1. Fetch Data (with caching)
+        if self.last_fetched_track == track and self.cached_user_data and self.cached_library_data:
+            user_data = self.cached_user_data
+            library_data = self.cached_library_data
+            logger.debug(f"Using cached Last.fm stats for {track}")
+        else:
+            user_data = get_user_data(username)
+            if not user_data:
+                logger.error(f"User data not found for {username}")
+                return
+            
+            logger.info(f"User data found for {username}")
+            logger.debug(f"User data: {user_data}")
+    
+            library_data = get_library_data(username, artist, title)
+            if not library_data:
+                logger.error(f"Library data not found for {username}")
+                return
+            
+            logger.info(f"Library data found for {username}")
+            logger.debug(f"Library data: {library_data}")
+            
+            # Update cache
+            self.last_fetched_track = track
+            self.cached_user_data = user_data
+            self.cached_library_data = library_data
 
         # 2. Prepare Display Data
         rpc_buttons = self._prepare_buttons(username, artist, title, album)
@@ -203,11 +234,16 @@ class DiscordRPC:
         scrobbles, artists, loved_tracks = user_data["header_status"] # unpacking
         artist_count = library_data["artist_count"]
 
-        small_image_lines = {
-            'name':         f"{user_display_name} (@{username})",
-            "scrobbles":    f'Scrobbles: {scrobbles}',
-            "artists":      f'Artists: {artists}',
-            "loved_tracks": f'Loved Tracks: {loved_tracks}'}
+        small_image_lines = {}
+        if self.show_username:
+             small_image_lines['name'] = f"{user_display_name} (@{username})"
+        
+        if self.show_scrobbles:
+            small_image_lines["scrobbles"] = f'Scrobbles: {scrobbles}'
+        if self.show_artists:
+            small_image_lines["artists"] = f'Artists: {artists}'
+        if self.show_loved:
+            small_image_lines["loved_tracks"] = f'Loved Tracks: {loved_tracks}'
 
         # Handle artwork and large image lines via helper
         artwork, large_image_lines = self._prepare_artwork_status(artwork, artist_count, library_data)
@@ -215,14 +251,28 @@ class DiscordRPC:
         # Call the helper for text processing
         rpc_small_image_text = self._format_image_text(small_image_lines, RPC_LINE_LIMIT, RPC_XCHAR)
         rpc_large_image_text = self._format_image_text(large_image_lines, RPC_LINE_LIMIT, RPC_XCHAR)
+        
+        # Fallback if large text is empty (required by Discord if large_image is present)
+        if not rpc_large_image_text or rpc_large_image_text.strip() == "":
+             rpc_large_image_text = album if album else "Listening now"
 
         self.current_artist = artist
         self.artist_scrobbles = artist_count
 
+        # Prepare small image logic
+        small_image_asset = None
+        if self.show_small_image:
+             if self.use_custom_profile_image:
+                 small_image_asset = user_data["avatar_url"]
+             elif self.use_default_icon:
+                 small_image_asset = DEFAULT_AVATAR_URL
+             elif self.use_lastfm_icon:
+                 small_image_asset = LASTFM_ICON_URL
+                 
         update_assets = {
             'details': title,
             'buttons': rpc_buttons,
-            'small_image': user_data["avatar_url"],
+            'small_image': small_image_asset,
             'small_text': rpc_small_image_text,
             'large_text': rpc_large_image_text,
             # situation-dependent assets
@@ -241,3 +291,6 @@ class DiscordRPC:
                 self.RPC.update(**update_assets)
             except Exception as e:
                 logger.error(f'Error updating RPC: {e}')
+                # If update fails (e.g. BrokenPipe, Request Terminated), force disconnect
+                # so the app effectively tries to reconnect on next cycle.
+                self._disconnect()

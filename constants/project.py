@@ -24,6 +24,7 @@ APP_ICON_PATH = "assets/last_fm.png"
 # Remote Assets
 DEFAULT_AVATAR_ID = "818148bf682d429dc215c1705eb27b98"
 DEFAULT_AVATAR_URL = f"https://lastfm.freetls.fastly.net/i/u/avatar170s/{DEFAULT_AVATAR_ID}.png"
+LASTFM_ICON_URL = "https://www.last.fm/static/images/lastfm_avatar_applemusic.b06eb8ad89be.png"
 DAY_MODE_COVER = 'https://i.imgur.com/GOVbNaF.png'
 NIGHT_MODE_COVER = 'https://i.imgur.com/kvGS4Pa.png'
 
