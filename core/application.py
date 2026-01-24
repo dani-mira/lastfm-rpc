@@ -93,8 +93,8 @@ class App:
         
         # Fallback if track is detected but stats (artist name) not yet confirmed
         if self.current_track_name != messenger('no_track'):
-            return ">> İstatistikler yükleniyor..."
-        return "İstatistikler (Şarkı çalınca görünür)"
+            return messenger('stats_loading')
+        return messenger('stats_idle')
 
     def setup_tray_menu(self):
         """Creates and returns the tray menu with dynamic items."""
