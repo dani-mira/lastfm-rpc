@@ -213,19 +213,17 @@ class DiscordRPC:
             'state': track_artist_album if time_remaining_bool and not album_bool else artist,
             'end': time_remaining + self.start_time if time_remaining_bool else None}
 
-        """
         # logging
         if time_remaining_bool:
             if album_bool:
-                print('Updating status with album, time remaining.')
+                logging.debug('Updating status with album, time remaining.')
             else:
-                print('Updating status without album, time remaining.')
+                logging.debug('Updating status without album, time remaining.')
         else:
             if album_bool:
-                print('Updating status with album, no time remaining')
+                logging.debug('Updating status with album, no time remaining')
             else:
-                print('Updating status without album, no time remaining')
-        """
+                logging.debug('Updating status without album, no time remaining')
 
         if self.RPC:
             try:
