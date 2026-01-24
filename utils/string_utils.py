@@ -1,4 +1,7 @@
+import logging
 from constants.project import TRANSLATIONS
+
+logger = logging.getLogger('utils')
 
 def messenger(key, *args):
     """
@@ -54,9 +57,9 @@ def get_removal(inside_obj, find_obj=' ', return_type=None):
 
     # Convert inside_obj to the specified type if needed
     if not isinstance(inside_obj, return_type):
-        if return_type == int:
+        if return_type is int:
             inside_obj = int(inside_obj)
-        elif return_type == float:
+        elif return_type is float:
             inside_obj = float(inside_obj)
 
     # print(f'{inside_obj}: {type(inside_obj)}')
