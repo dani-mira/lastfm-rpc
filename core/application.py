@@ -131,16 +131,7 @@ class App:
                     formatted_track = f"{artist} - {title}"
                     new_track_display = messenger('now_playing', formatted_track)
                     
-                    if self.current_track_name != new_track_display or self._rpc_connected != self.rpc.is_connected:
-                        self.current_track_name = new_track_display
-                        self._rpc_connected = self.rpc.is_connected
-                        logger.info(f"Status: {self.current_track_name} | Discord: {self._rpc_connected}")
-                        # Force menu refresh
-                        self.icon_tray.menu = self.setup_tray_menu()
-                    else:
-                        # Less noisy polling log for the same track
-                        logger.debug(f"Polling: {formatted_track}")
-                    
+                    # 1. First update the status and internal variables
                     self.rpc.enable()
                     self.rpc.update_status(
                         str(current_track),
@@ -151,12 +142,31 @@ class App:
                         USERNAME,
                         artwork
                     )
+
+                    # 2. Check if we need to refresh the tray menu or title
+                    # We check: track name change OR connection status change OR scrobble count change
+                    has_track_changed = self.current_track_name != new_track_display
+                    has_conn_changed = self._rpc_connected != self.rpc.is_connected
+                    
+                    if has_track_changed or has_conn_changed:
+                        self.current_track_name = new_track_display
+                        self._rpc_connected = self.rpc.is_connected
+                        
+                        logger.info(f"Status: {self.current_track_name} | Discord: {self._rpc_connected}")
+                        
+                        # Update tooltip and menu
+                        self.icon_tray.title = f"{APP_NAME}\n{new_track_display}"
+                        self.icon_tray.menu = self.setup_tray_menu()
+                    else:
+                        logger.debug(f"Polling: {formatted_track}")
+                    
                     time.sleep(TRACK_CHECK_INTERVAL)
                 else:
                     if self.current_track_name != messenger('no_track') or self._rpc_connected != self.rpc.is_connected:
                         self.current_track_name = messenger('no_track')
                         self._rpc_connected = self.rpc.is_connected
                         logger.info(f"Tray Update: No track detected | Discord: {self._rpc_connected}")
+                        self.icon_tray.title = f"{APP_NAME}\n{self.current_track_name}"
                         self.icon_tray.menu = self.setup_tray_menu()
                     self.rpc.disable()
             except Exception as e:
@@ -165,5 +175,13 @@ class App:
 
     def run(self):
         """Starts the system tray application and RPC thread."""
+        logger.info("Starting RPC thread...")
         self.rpc_thread.start()
-        self.icon_tray.run()
+        
+        logger.info("Starting system tray icon...")
+        try:
+            self.icon_tray.run()
+        except Exception as e:
+            logger.error(f"System tray icon failed to run: {e}", exc_info=True)
+        finally:
+            logger.info("Application loop finished.")
