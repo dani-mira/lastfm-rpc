@@ -3,8 +3,11 @@ import logging
 
 from api.lastfm.user.library import get_library_data
 from api.lastfm.user.profile import get_user_data
+
 from pypresence.presence import Presence
+from pypresence.types import ActivityType, StatusDisplayType
 from pypresence import exceptions
+
 from utils.url_utils import url_encoder
 from constants.project import (
     CLIENT_ID, 
@@ -270,6 +273,8 @@ class DiscordRPC:
                  small_image_asset = LASTFM_ICON_URL
                  
         update_assets = {
+            'activity_type': ActivityType.LISTENING,
+            'status_display_type': StatusDisplayType.STATE,
             'details': title,
             'buttons': rpc_buttons,
             'small_image': small_image_asset,
