@@ -3,8 +3,11 @@ import logging
 
 from api.lastfm.user.library import get_library_data
 from api.lastfm.user.profile import get_user_data
+
 from pypresence.presence import Presence
+from pypresence.types import ActivityType, StatusDisplayType
 from pypresence import exceptions
+
 from utils.url_utils import url_encoder
 from constants.project import (
     CLIENT_ID, 
@@ -46,6 +49,7 @@ class DiscordRPC:
         self.show_username = True
         
         self.show_artist_scrobbles_large = True
+        self.focus_artist = True
         
         # Cache for forced updates
         self.last_fetched_track = None
@@ -269,16 +273,23 @@ class DiscordRPC:
              elif self.use_lastfm_icon:
                  small_image_asset = LASTFM_ICON_URL
                  
+        # Prepare dynamic assets based on Focus Mode
+        display_type = StatusDisplayType.STATE if self.focus_artist else StatusDisplayType.DETAILS
+        
+        rpc_state = track_artist_album if time_remaining_bool and not album_bool else artist
+        
         update_assets = {
+            'activity_type': ActivityType.LISTENING,
+            'status_display_type': display_type,
             'details': title,
+            'state': rpc_state,
             'buttons': rpc_buttons,
             'small_image': small_image_asset,
             'small_text': rpc_small_image_text,
             'large_text': rpc_large_image_text,
-            # situation-dependent assets
             'large_image': 'artwork' if not time_remaining_bool and not album_bool else artwork,
-            'state': track_artist_album if time_remaining_bool and not album_bool else artist,
-            'end': time_remaining + self.start_time if time_remaining_bool else None}
+            'end': time_remaining + self.start_time if time_remaining_bool else None
+        }
 
         # logging
         state = 'with album' if album_bool else 'without album'

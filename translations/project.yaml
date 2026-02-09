@@ -35,6 +35,9 @@ EN:
   menu_use_default_icon: "Use Default Icon"
   menu_use_lastfm_icon: "Use Last.fm Icon"
   menu_show_username: "Show Username"
+  menu_focus_mode: "Status: Listening to..."
+  menu_focus_artist: "Artist"
+  menu_focus_track: "Track"
 TR:
   pylast_ws_error: "Web servisinde bağlantı sorunu oluştu, bağlantı {} saniye sonra yeniden deneniyor."
   pylast_network_error: "Uygulama Last.fm sunucularıyla iletişim kuramadı, internet bağlantınızı kontrol edin!"
@@ -72,3 +75,6 @@ TR:
   menu_use_default_icon: "Varsayılan İkonu Kullan"
   menu_use_lastfm_icon: "Last.fm İkonunu Kullan"
   menu_show_username: "Kullanıcı Adını Göster"
+  menu_focus_mode: "Durum: Dinliyor..."
+  menu_focus_artist: "Sanatçı"
+  menu_focus_track: "Şarkı"
