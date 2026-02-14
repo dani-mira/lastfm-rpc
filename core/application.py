@@ -9,12 +9,7 @@ from tkinter import messagebox
 from pystray import Icon, Menu, MenuItem
 from PIL import Image
 
-from constants.project import (
-    USERNAME, APP_NAME, 
-    APP_ICON_PATH, 
-    TRACK_CHECK_INTERVAL, UPDATE_INTERVAL,
-    LASTFM_USER_URL
-)
+import constants.project as project
 from utils.string_utils import messenger
 from api.lastfm.user.tracking import User
 from api.discord.rpc import DiscordRPC
@@ -33,12 +28,14 @@ class App:
         self.rpc_thread.daemon = True
         self.update_event = threading.Event()
         self.cached_track_data = None # Store (current_track, data) for forced updates
+        self.config_needs_reload = False
 
     def exit_app(self, icon, item):
-        """Stops the system tray icon and exits the application."""
+        """Cleanly exits the application."""
         logger.info("Exiting application.")
+        self.rpc.disable()
         icon.stop()
-        sys.exit()
+        os._exit(0)
 
     def toggle_debug(self, icon, item):
         """Toggles between DEBUG and INFO logging levels."""
@@ -54,7 +51,7 @@ class App:
 
     def open_profile(self, icon, item):
         """Opens the user's Last.fm profile in the default browser."""
-        url = LASTFM_USER_URL.format(username=USERNAME)
+        url = project.LASTFM_USER_URL.format(username=project.USERNAME)
         webbrowser.open(url)
         logger.info(f"Opened Last.fm profile: {url}")
 
@@ -71,7 +68,7 @@ class App:
     def load_icon(self, directory):
         """Loads the application icon from the assets directory."""
         try:
-            return Image.open(os.path.join(directory, APP_ICON_PATH))
+            return Image.open(os.path.join(directory, project.APP_ICON_PATH))
         except FileNotFoundError:
             messagebox.showerror(messenger('err'), messenger('err_assets'))
             sys.exit(1)
@@ -152,7 +149,7 @@ class App:
     def setup_tray_menu(self):
         """Creates and returns the tray menu with dynamic items."""
         return Menu(
-            MenuItem(messenger('user', USERNAME), self.open_profile),
+            MenuItem(messenger('user', project.USERNAME), self.open_profile),
             MenuItem(lambda item: self.current_track_name, None, enabled=False),
             # Display stats item
             MenuItem(
@@ -184,9 +181,65 @@ class App:
             )),
             
             Menu.SEPARATOR,
+            MenuItem(messenger('menu_settings'), self.open_settings),
             MenuItem(messenger('debug_mode'), self.toggle_debug, checked=lambda item: self.debug_enabled),
             MenuItem(messenger('exit'), self.exit_app)
         )
+
+    def open_settings(self, icon, item):
+        """Opens the graphical settings window in a non-blocking thread."""
+        from utils.gui import ConfigGUI
+        import threading
+        
+        # Prevent multiple windows
+        if hasattr(self, '_settings_open') and self._settings_open:
+            logger.warning("Settings window is already open.")
+            return
+            
+        self._settings_open = True
+        logger.info("Opening settings GUI.")
+        
+        # Access constants directly from module to get latest reloaded values
+        current_vals = (project.USERNAME, project.API_KEY, project.API_SECRET, project.APP_LANG)
+        
+        def save_and_reload(new_config):
+            try:
+                import yaml
+                with open("config.yaml", "w", encoding="utf-8") as f:
+                    yaml.dump(new_config, f, default_flow_style=False)
+                
+                # Dynamic reload without restart
+                from constants.project import reload_constants
+                reload_constants()
+                
+                # Refresh UI and track
+                self.icon_tray.menu = self.setup_tray_menu()
+                self.rpc.last_track = None
+                self.current_track_name = messenger('no_track')
+                self.config_needs_reload = True
+                
+                logger.info("Config updated and reloaded via GUI.")
+                return True
+            except Exception as e:
+                logger.error(f"Failed to save config: {e}")
+                return False
+
+        def run_gui():
+            try:
+                gui = ConfigGUI(current_vals, save_and_reload)
+                # Keep track of when it's closed
+                def on_close():
+                    self._settings_open = False
+                    gui.root.quit()
+                    gui.root.destroy()
+                
+                gui.root.protocol("WM_DELETE_WINDOW", on_close)
+                gui.run()
+            finally:
+                self._settings_open = False
+
+        # Launch in a background thread to keep tray responsive
+        threading.Thread(target=run_gui, daemon=True).start()
 
     def setup_tray_icon(self):
         """Sets up the initial system tray icon."""
@@ -194,9 +247,9 @@ class App:
         icon_img = self.load_icon(directory)
         
         return Icon(
-            APP_NAME,
+            project.APP_NAME,
             icon=icon_img,
-            title=APP_NAME,
+            title=project.APP_NAME,
             menu=self.setup_tray_menu()
         )
 
@@ -216,7 +269,7 @@ class App:
             self.current_track_name = new_track_display
             self._rpc_connected = self.rpc.is_connected
             logger.info(f"Status: {self.current_track_name} | Discord: {self._rpc_connected}")
-            self.icon_tray.title = f"{APP_NAME}\n{new_track_display}"
+            self.icon_tray.title = f"{project.APP_NAME}\n{new_track_display}"
         else:
             logger.debug(f"Polling: {formatted_track}")
 
@@ -227,7 +280,7 @@ class App:
             str(artist),
             str(album),
             time_remaining,
-            USERNAME,
+            project.USERNAME,
             artwork
         )
         
@@ -241,48 +294,58 @@ class App:
             self.current_track_name = messenger('no_track')
             self._rpc_connected = self.rpc.is_connected
             logger.info(f"Tray Update: No track detected | Discord: {self._rpc_connected}")
-            self.icon_tray.title = f"{APP_NAME}\n{self.current_track_name}"
+            self.icon_tray.title = f"{project.APP_NAME}\n{self.current_track_name}"
         self.rpc.disable()
 
     def run_rpc(self, loop):
         """Runs the RPC updater in a loop."""
         logger.info(messenger('starting_rpc'))
         asyncio.set_event_loop(loop)
-        user = User(USERNAME)
+        
+        user = User(project.USERNAME)
 
         while True:
+            # Check if config was reloaded via GUI
+            if self.config_needs_reload:
+                logger.info(f"Applying new configuration for user: {project.USERNAME}")
+                user = User(project.USERNAME)
+                self.config_needs_reload = False
+
             # Check if this iteration was triggered by an event (settings change)
             is_forced_update = self.update_event.is_set()
             self.update_event.clear()
             
             try:
-                # If forced update and we have cached data, reuse it without polling Last.fm
-                if is_forced_update and self.cached_track_data:
-                    current_track, data = self.cached_track_data
-                else:
-                    # Normal poll cycle
-                    current_track, data = user.now_playing()
-                    if data:
-                        self.cached_track_data = (current_track, data)
-                
-                if data:
-                    self._handle_active_track(current_track, data)
-                    if self.update_event.wait(TRACK_CHECK_INTERVAL):
-                        continue # If event set, restart loop immediately
-                else:
-                    self._handle_no_track()
-                    self.cached_track_data = None
-                    if self.update_event.wait(UPDATE_INTERVAL):
-                        continue
+                wait_time = self._perform_rpc_cycle(user, is_forced_update)
+                # Wait for next cycle or till an event is set
+                if self.update_event.wait(wait_time):
+                    continue
             except Exception as e:
                 logger.error(f"Unexpected error in RPC loop: {e}", exc_info=True)
-                if self.update_event.wait(UPDATE_INTERVAL):
-                    continue
-            
-            # Additional small sleep if needed to prevent hot loop in case of errors, 
-            # but wait() handles the interval. 
-            # Logic: If wait returns True (event set), we continue. 
-            # If wait returns False (timeout), loop continues naturally.
+                # Small cooldown after failure
+                self.update_event.wait(5)
+
+    def _perform_rpc_cycle(self, user, is_forced_update):
+        """
+        Executes a single cycle of the RPC update process.
+        Returns the wait time for the next cycle.
+        """
+        # If forced update and we have cached data, reuse it without polling Last.fm
+        if is_forced_update and self.cached_track_data:
+            current_track, data = self.cached_track_data
+        else:
+            # Normal poll cycle
+            current_track, data = user.now_playing()
+            if data:
+                self.cached_track_data = (current_track, data)
+        
+        if data:
+            self._handle_active_track(current_track, data)
+            return project.TRACK_CHECK_INTERVAL
+        else:
+            self._handle_no_track()
+            self.cached_track_data = None
+            return project.UPDATE_INTERVAL
 
     def _on_setup(self, icon):
         """Callback to start backend tasks once the icon is running."""

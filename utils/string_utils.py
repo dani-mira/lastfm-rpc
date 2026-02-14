@@ -1,5 +1,5 @@
 import logging
-from constants.project import TRANSLATIONS
+import constants.project as project
 
 logger = logging.getLogger('utils')
 
@@ -10,11 +10,11 @@ def messenger(key, *args):
     """
     try:
         if not args:
-            return TRANSLATIONS[key]
+            return project.TRANSLATIONS[key]
         
         # Unpack if passed as a single collection
         actual_args = args[0] if len(args) == 1 and isinstance(args[0], (list, tuple)) else args
-        return TRANSLATIONS[key].format(*(str(arg) for arg in actual_args))
+        return project.TRANSLATIONS[key].format(*(str(arg) for arg in actual_args))
     except (KeyError, IndexError, ValueError, TypeError) as e:
         logger.error(f'Translation error for key "{key}": {e}')
         return f"[{key}]"

@@ -1,7 +1,29 @@
 from utils.reader import load_config, load_translations
 
-# Loaded from config.yaml
-USERNAME, API_KEY, API_SECRET, APP_LANG = load_config()
+# Paths
+TRANSLATIONS_DIR = "translations"
+ASSETS_DIR = "assets"
+APP_ICON_PATH = "assets/last_fm.png"
+
+# These will be updated by reload_constants()
+USERNAME = ""
+API_KEY = ""
+API_SECRET = ""
+APP_LANG = "en-US"
+TRANSLATIONS = {}
+
+def reload_constants():
+    """Re-reads config.yaml and updates the global constants and translations."""
+    global USERNAME, API_KEY, API_SECRET, APP_LANG
+    USERNAME, API_KEY, API_SECRET, APP_LANG = load_config()
+    
+    # Update translations in-place to preserve references in other modules
+    new_translations = load_translations(APP_LANG, TRANSLATIONS_DIR)
+    TRANSLATIONS.clear()
+    TRANSLATIONS.update(new_translations)
+
+# Perform initial load
+reload_constants()
 
 # Discord Configuration
 CLIENT_ID = '702984897496875072'
@@ -15,11 +37,6 @@ MAX_RETRIES = 10
 UPDATE_INTERVAL = 2
 TRACK_CHECK_INTERVAL = 5
 DEFAULT_COOLDOWN = 6
-
-# Paths
-TRANSLATIONS_DIR = "translations"
-ASSETS_DIR = "assets"
-APP_ICON_PATH = "assets/last_fm.png"
 
 # Remote Assets
 DEFAULT_AVATAR_ID = "818148bf682d429dc215c1705eb27b98"
@@ -37,6 +54,3 @@ LASTFM_TRACK_URL_TEMPLATE = f"{LASTFM_USER_URL}/library/music/{{artist}}/_/{{tit
 # External Search Templates
 YT_MUSIC_SEARCH_TEMPLATE = "https://music.youtube.com/search?q={query}"
 SPOTIFY_SEARCH_TEMPLATE = "https://open.spotify.com/search/{query}"
-
-# Load translations
-TRANSLATIONS = load_translations(APP_LANG, TRANSLATIONS_DIR)
