@@ -1,5 +1,6 @@
 import logging
 import sys
+import os
 from typing import Tuple, Dict
 
 import yaml
@@ -33,7 +34,7 @@ def load_config(config_path: str = "config.yaml") -> Tuple[str, str, str, str]:
         username = config.get('USER', {}).get('USERNAME')
         api_key = config.get('API', {}).get('KEY')
         api_secret = config.get('API', {}).get('SECRET')
-        app_lang = config.get('APP', {}).get('LANG', 'EN')
+        app_lang = config.get('APP', {}).get('LANG', 'en-US')
 
         if not all([username, api_key, api_secret]):
             logging.error("Configuration incomplete. Please check USERNAME, API KEY, and API SECRET in config.yaml.")
@@ -45,19 +46,20 @@ def load_config(config_path: str = "config.yaml") -> Tuple[str, str, str, str]:
         logging.error(f"Error validating configuration: {e}")
         sys.exit(1)
 
-def load_translations(app_lang: str, translations_path: str) -> Dict[str, str]:
+def load_translations(app_lang: str, translations_dir: str) -> Dict[str, str]:
     """
-    Load the translations file and return the translations for the specified language.
+    Load the translations from a specific file based on the language code.
     
-    :param app_lang: Language code for the translations.
-    :param translations_path: Path to the translations YAML file.
-    :return: A dictionary containing translations for the specified language.
+    :param app_lang: Language code for the translations (e.g., 'en-US', 'tr-TR').
+    :param translations_dir: Path to the translations directory.
+    :return: A dictionary containing translations.
     """
-    translations = load_yaml_file(translations_path)
+    file_path = os.path.join(translations_dir, f"{app_lang}.yaml")
+    
     try:
-        language_translations = translations[app_lang]
-        logging.info('Translations have been successfully loaded from the file.')
-        return language_translations
-    except KeyError:
-        logging.error(f"Translations file missing specified language: {app_lang}")
+        translations = load_yaml_file(file_path)
+        logging.info(f"Translations for '{app_lang}' loaded successfully from {file_path}")
+        return translations
+    except Exception:
+        logging.error(f"Could not load translations for language: {app_lang}")
         sys.exit(1)

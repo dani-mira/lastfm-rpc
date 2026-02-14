@@ -17,7 +17,7 @@ TRACK_CHECK_INTERVAL = 5
 DEFAULT_COOLDOWN = 6
 
 # Paths
-TRANSLATIONS_PATH = "translations/project.yaml"
+TRANSLATIONS_DIR = "translations"
 ASSETS_DIR = "assets"
 APP_ICON_PATH = "assets/last_fm.png"
 
@@ -39,4 +39,4 @@ YT_MUSIC_SEARCH_TEMPLATE = "https://music.youtube.com/search?q={query}"
 SPOTIFY_SEARCH_TEMPLATE = "https://open.spotify.com/search/{query}"
 
 # Load translations
-TRANSLATIONS = load_translations(APP_LANG, TRANSLATIONS_PATH)
+TRANSLATIONS = load_translations(APP_LANG, TRANSLATIONS_DIR)
