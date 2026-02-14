@@ -5,10 +5,10 @@ from api.lastfm.user.library import get_library_data
 from api.lastfm.user.profile import get_user_data
 
 from pypresence.presence import Presence
-from pypresence.types import ActivityType, StatusDisplayType
-from pypresence import exceptions
+from pypresence import ActivityType, StatusDisplayType, exceptions
 
 from utils.url_utils import url_encoder
+from utils.string_utils import messenger
 from constants.project import (
     CLIENT_ID, 
     DAY_MODE_COVER, NIGHT_MODE_COVER,
@@ -137,11 +137,11 @@ class DiscordRPC:
                 line_suffix = "" if len(line) > 20 else (limit - len(line) - sum(c.isupper() for c in line))*xchar
                 result_text += f'{line}{line_suffix} '
         
-        # if the text is too long, cut it
+                # if the text is too long, cut it
         if len(result_text) > 128:
             result_text = result_text.replace(xchar, '')
             
-        return result_text
+        return result_text.strip()
 
     def _prepare_artwork_status(self, artwork, artist_count, library_data):
         """Handles artwork fallback and library scrobble counts."""
@@ -154,130 +154,55 @@ class DiscordRPC:
             #day: false, night: true
             is_day = now.hour >= 18 or now.hour < 9 
             artwork = DAY_MODE_COVER if is_day else NIGHT_MODE_COVER
-            large_image_lines['theme'] = f"{'Night' if is_day else 'Day'} Mode Cover"
+            large_image_lines['theme'] = messenger('rpc_night_mode') if is_day else messenger('rpc_day_mode')
 
         if artist_count:
             # if the artist is in the library
             if self.show_artist_scrobbles_large:
                 track_count = library_data["track_count"]
-                large_image_lines["artist_scrobbles"] = f'Scrobbles: {artist_count}/{track_count}' if track_count else f'Scrobbles: {artist_count}'
+                msg = messenger('rpc_scrobbles_total', [artist_count, track_count]) if track_count else messenger('rpc_scrobbles', artist_count)
+                large_image_lines["artist_scrobbles"] = msg
         else:
-            large_image_lines['first_time'] = 'First time listening!'
+            large_image_lines['first_time'] = messenger('rpc_first_time')
             
         return artwork, large_image_lines
 
     def _prepare_buttons(self, username, artist, title, album):
-        """
-        Compiles the RPC buttons.
-        
-        Alternative button templates for future use:
-        - Spotify: {"label": "Search on Spotify", "url": str(SPOTIFY_SEARCH_TEMPLATE.format(query=url_encoder(album)))}
-        - track_url: {"label": "View Track", "url": str(f"https://www.last.fm/music/{url_encoder(artist)}/{url_encoder(title)}")}
-        - user_url: {"label": "View Last.fm Profile", "url": str(LASTFM_USER_URL.format(username=username))}
-        """
+        """Compiles the RPC buttons."""
         return [
-            {"label": "View Track", "url": str(LASTFM_TRACK_URL_TEMPLATE.format(username=username, artist=url_encoder(artist), title=url_encoder(title)))},
-            {"label": "Search on YouTube Music", "url": str(YT_MUSIC_SEARCH_TEMPLATE.format(query=url_encoder(album)))}
+            {"label": messenger('menu_focus_track'), "url": str(LASTFM_TRACK_URL_TEMPLATE.format(username=username, artist=url_encoder(artist), title=url_encoder(title)))},
+            {"label": "YouTube Music", "url": str(YT_MUSIC_SEARCH_TEMPLATE.format(query=url_encoder(album)))}
         ]
 
     def update_status(self, track, title, artist, album, time_remaining, username, artwork):
-        # logger.debug(f"Update: track={track}, title={title}, artist={artist}, album={album}, time={time_remaining}")
-
         if len(title) < 2:
             title = title + ' '
 
         if self.last_track == track and self.current_artist is not None:
-            # if the track is the same as the last track AND we already have stats, don't update
             return
 
-        # Pre-process status flags
-        album_bool = album is not None
         time_remaining_bool = time_remaining > 0
         if time_remaining_bool:
             time_remaining = float(str(time_remaining)[0:3])
 
-        logger.info(f'Album: {album} | Time Remaining: {time_remaining_bool} - {time_remaining} | Now Playing: {track}')
+        user_data, library_data = self._get_metadata_with_cache(track, username, artist, title)
+        if not user_data or not library_data:
+            return
 
         self.start_time = datetime.datetime.now().timestamp()
         self.last_track = track
-        track_artist_album = f'{artist} - {album}'
-        
-        # 1. Fetch Data (with caching)
-        if self.last_fetched_track == track and self.cached_user_data and self.cached_library_data:
-            user_data = self.cached_user_data
-            library_data = self.cached_library_data
-            logger.debug(f"Using cached Last.fm stats for {track}")
-        else:
-            user_data = get_user_data(username)
-            if not user_data:
-                logger.error(f"User data not found for {username}")
-                return
-            
-            logger.info(f"User data found for {username}")
-            logger.debug(f"User data: {user_data}")
-    
-            library_data = get_library_data(username, artist, title)
-            if not library_data:
-                logger.error(f"Library data not found for {username}")
-                return
-            
-            logger.info(f"Library data found for {username}")
-            logger.debug(f"Library data: {library_data}")
-            
-            # Update cache
-            self.last_fetched_track = track
-            self.cached_user_data = user_data
-            self.cached_library_data = library_data
-
-        # 2. Prepare Display Data
-        rpc_buttons = self._prepare_buttons(username, artist, title, album)
-
-
-        # Unpack User Info
-        user_display_name = user_data["display_name"]
-        scrobbles, artists, loved_tracks = user_data["header_status"] # unpacking
-        artist_count = library_data["artist_count"]
-
-        small_image_lines = {}
-        if self.show_username:
-             small_image_lines['name'] = f"{user_display_name} (@{username})"
-        
-        if self.show_scrobbles:
-            small_image_lines["scrobbles"] = f'Scrobbles: {scrobbles}'
-        if self.show_artists:
-            small_image_lines["artists"] = f'Artists: {artists}'
-        if self.show_loved:
-            small_image_lines["loved_tracks"] = f'Loved Tracks: {loved_tracks}'
-
-        # Handle artwork and large image lines via helper
-        artwork, large_image_lines = self._prepare_artwork_status(artwork, artist_count, library_data)
-
-        # Call the helper for text processing
-        rpc_small_image_text = self._format_image_text(small_image_lines, RPC_LINE_LIMIT, RPC_XCHAR)
-        rpc_large_image_text = self._format_image_text(large_image_lines, RPC_LINE_LIMIT, RPC_XCHAR)
-        
-        # Fallback if large text is empty (required by Discord if large_image is present)
-        if not rpc_large_image_text or rpc_large_image_text.strip() == "":
-             rpc_large_image_text = album if album else "Listening now"
-
         self.current_artist = artist
-        self.artist_scrobbles = artist_count
+        self.artist_scrobbles = library_data["artist_count"]
 
-        # Prepare small image logic
-        small_image_asset = None
-        if self.show_small_image:
-             if self.use_custom_profile_image:
-                 small_image_asset = user_data["avatar_url"]
-             elif self.use_default_icon:
-                 small_image_asset = DEFAULT_AVATAR_URL
-             elif self.use_lastfm_icon:
-                 small_image_asset = LASTFM_ICON_URL
-                 
-        # Prepare dynamic assets based on Focus Mode
+        # Prepare Assets
+        rpc_buttons = self._prepare_buttons(username, artist, title, album)
+        small_image_asset, small_text = self._prepare_small_image_details(user_data, username)
+        artwork_asset, large_text = self._prepare_artwork_and_large_text(artwork, album, library_data)
+
+        # Logic for Discord Display
         display_type = StatusDisplayType.STATE if self.focus_artist else StatusDisplayType.DETAILS
-        
-        rpc_state = track_artist_album if time_remaining_bool and not album_bool else artist
-        
+        rpc_state = f'{artist} - {album}' if time_remaining_bool and album else artist
+
         update_assets = {
             'activity_type': ActivityType.LISTENING,
             'status_display_type': display_type,
@@ -285,20 +210,84 @@ class DiscordRPC:
             'state': rpc_state,
             'buttons': rpc_buttons,
             'small_image': small_image_asset,
-            'small_text': rpc_small_image_text,
-            'large_text': rpc_large_image_text,
-            'large_image': 'artwork' if not time_remaining_bool and not album_bool else artwork,
+            'small_text': small_text,
+            'large_text': large_text,
+            'large_image': 'artwork' if not time_remaining_bool and not album else artwork_asset,
             'end': time_remaining + self.start_time if time_remaining_bool else None
         }
 
-        # logging
-        state = 'with album' if album_bool else 'without album'
-        time_state = 'time' if time_remaining_bool else 'no time'
-        logger.debug(f'Update state: {state}, {time_state}')
-        logger.debug(f"RPC update_assets: {update_assets}") # Debug artwork URL
+        self._send_rpc_update(update_assets)
 
+    def _get_metadata_with_cache(self, track, username, artist, title):
+        """Fetch user and library data with caching logic."""
+        if self.last_fetched_track == track and self.cached_user_data and self.cached_library_data:
+            logger.debug(f"Using cached Last.fm stats for {track}")
+            return self.cached_user_data, self.cached_library_data
+
+        user_data = get_user_data(username)
+        if not user_data:
+            logger.error(f"User data not found for {username}")
+            return None, None
+        logger.info(f"User data found for {username}")
+        logger.debug(f"User data: {user_data}")
+
+        library_data = get_library_data(username, artist, title)
+        if not library_data:
+            logger.error(f"Library data not found for {username}")
+            return None, None
+        logger.info(f"Library data found for {username}")
+        logger.debug(f"Library data: {library_data}")
+
+        self.last_fetched_track = track
+        self.cached_user_data = user_data
+        self.cached_library_data = library_data
+        return user_data, library_data
+
+    def _prepare_small_image_details(self, user_data, username):
+        """Prepares the small image asset and hover text."""
+        if not self.show_small_image:
+            return None, None
+
+        asset = None
+        if self.use_custom_profile_image:
+            asset = user_data["avatar_url"]
+        elif self.use_default_icon:
+            asset = DEFAULT_AVATAR_URL
+        elif self.use_lastfm_icon:
+            asset = LASTFM_ICON_URL
+        
+        lines = {}
+        if self.show_username:
+            lines['name'] = f"{user_data['display_name']} (@{username})"
+        
+        # Unpack header status
+        scrobbles, artists, loved_tracks = user_data["header_status"]
+        if self.show_scrobbles:
+            lines["scrobbles"] = messenger('rpc_scrobbles', scrobbles)
+        if self.show_artists:
+            lines["artists"] = messenger('rpc_artists', artists)
+        if self.show_loved:
+            lines["loved_tracks"] = messenger('rpc_loved_tracks', loved_tracks)
+
+        text = self._format_image_text(lines, RPC_LINE_LIMIT, RPC_XCHAR)
+        return asset, text
+
+    def _prepare_artwork_and_large_text(self, artwork, album, library_data):
+        """Prepares the large image asset and hover text."""
+        artist_count = library_data["artist_count"]
+        artwork, lines = self._prepare_artwork_status(artwork, artist_count, library_data)
+        
+        text = self._format_image_text(lines, RPC_LINE_LIMIT, RPC_XCHAR)
+        if not text or text.strip() == "":
+            text = album if album else messenger('rpc_listening_now')
+        
+        return artwork, text
+
+    def _send_rpc_update(self, update_assets):
+        """Sends the prepared payload to Discord."""
         if self.RPC:
             try:
+                logger.debug(f"RPC update_assets: {update_assets}")
                 self.RPC.update(**update_assets)
             except Exception as e:
                 logger.error(f'Error updating RPC: {e}')

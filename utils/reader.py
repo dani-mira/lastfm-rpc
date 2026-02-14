@@ -36,15 +36,15 @@ def load_config(config_path: str = "config.yaml") -> Tuple[str, str, str, str]:
         api_secret = config.get('API', {}).get('SECRET')
         app_lang = config.get('APP', {}).get('LANG', 'en-US')
 
-        if not all([username, api_key, api_secret]):
-            logging.error("Configuration incomplete. Please check USERNAME, API KEY, and API SECRET in config.yaml.")
-            sys.exit(1)
+        if not all([username, api_key, api_secret]) or "<" in str(username) or "<" in str(api_key):
+            logging.warning("Configuration incomplete or contains placeholders. GUI might be required.")
+            return username, api_key, api_secret, app_lang
             
         logging.info("Configuration loaded successfully.")
         return username, api_key, api_secret, app_lang
     except Exception as e:
         logging.error(f"Error validating configuration: {e}")
-        sys.exit(1)
+        return "", "", "", 'en-US'
 
 def load_translations(app_lang: str, translations_dir: str) -> Dict[str, str]:
     """
