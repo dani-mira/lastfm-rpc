@@ -31,13 +31,13 @@ jobs:
         uses: thedoctor0/zip-release@0.7.6
         with:
           type: 'zip'
-          filename: 'lastfm-rpc-windows.zip'
+          filename: 'lastfm-rpc-${{ github.ref_name }}-windows.zip'
           directory: 'dist/main.dist'
           
       - name: Create Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: dist/main.dist/lastfm-rpc-windows.zip
+          files: lastfm-rpc-${{ github.ref_name }}-windows.zip
           draft: false
           prerelease: false
