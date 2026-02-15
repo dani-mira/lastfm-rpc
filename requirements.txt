@@ -1,6 +1,0 @@
-pystray
-pyyaml
-pylast
-pypresence
-requests
-beautifulsoup4

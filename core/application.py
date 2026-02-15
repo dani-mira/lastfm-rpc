@@ -22,13 +22,17 @@ class App:
         self.current_track_name = messenger('no_track')
         self._rpc_connected = False
         self.debug_enabled = logging.getLogger().getEffectiveLevel() == logging.DEBUG
+        
+        # Initialize flags and states BEFORE UI setup
+        self.config_needs_reload = False
+        self.latest_update = (False, None, None)
+        self.cached_track_data = None
+        self.update_event = threading.Event()
+        
         self.icon_tray = self.setup_tray_icon()
         self.loop = asyncio.new_event_loop()
         self.rpc_thread = threading.Thread(target=self.run_rpc, args=(self.loop,))
         self.rpc_thread.daemon = True
-        self.update_event = threading.Event()
-        self.cached_track_data = None # Store (current_track, data) for forced updates
-        self.config_needs_reload = False
 
     def exit_app(self, icon, item):
         """Cleanly exits the application."""
@@ -148,7 +152,19 @@ class App:
 
     def setup_tray_menu(self):
         """Creates and returns the tray menu with dynamic items."""
+        dynamic_items = []
+        
+        # Add Update Item at the top if available
+        is_available, ver_name, url = self.latest_update
+        if is_available:
+            dynamic_items.append(MenuItem(
+                messenger('update_available', ver_name), 
+                lambda icon, item: webbrowser.open(url) if url else None
+            ))
+            dynamic_items.append(Menu.SEPARATOR)
+
         return Menu(
+            *dynamic_items,
             MenuItem(messenger('user', project.USERNAME), self.open_profile),
             MenuItem(lambda item: self.current_track_name, None, enabled=False),
             # Display stats item
@@ -182,6 +198,7 @@ class App:
             
             Menu.SEPARATOR,
             MenuItem(messenger('menu_settings'), self.open_settings),
+            MenuItem(messenger('menu_check_updates'), self.check_updates_manual),
             MenuItem(messenger('debug_mode'), self.toggle_debug, checked=lambda item: self.debug_enabled),
             MenuItem(messenger('exit'), self.exit_app)
         )
@@ -347,6 +364,38 @@ class App:
             self.cached_track_data = None
             return project.UPDATE_INTERVAL
 
+    def check_updates_manual(self, icon, item):
+        """Check for updates manually and show a message box."""
+        from utils.update_checker import check_for_updates
+        is_avail, ver_name, url = check_for_updates()
+        
+        if is_avail:
+            self.latest_update = (is_avail, ver_name, url)
+            self.icon_tray.menu = self.setup_tray_menu()
+            if messagebox.askyesno(messenger('menu_check_updates'), messenger('update_available', ver_name) + "\n\nDo you want to visit the download page?"):
+                if url:
+                    webbrowser.open(url)
+        else:
+            messagebox.showinfo(messenger('menu_check_updates'), messenger('update_not_found'))
+
+    def trigger_startup_update_check(self):
+        """Runs update check in a thread to not block startup."""
+        def run_check():
+            try:
+                from utils.update_checker import check_for_updates
+                is_avail, ver_name, url = check_for_updates()
+                if is_avail:
+                    self.latest_update = (is_avail, ver_name, url)
+                    if self.icon_tray:
+                        self.icon_tray.menu = self.setup_tray_menu()
+                        # Optional: Show notification if frozen
+                        if getattr(sys, 'frozen', False):
+                             self.icon_tray.notify(messenger('update_available', ver_name), project.APP_NAME)
+            except Exception as e:
+                logger.debug(f"Background update check failed: {e}")
+        
+        threading.Thread(target=run_check, daemon=True).start()
+
     def _on_setup(self, icon):
         """Callback to start backend tasks once the icon is running."""
         # Show a notification safely
@@ -359,6 +408,9 @@ class App:
         # Start the background thread
         logger.info("Starting RPC background thread...")
         self.rpc_thread.start()
+        
+        # Check for updates
+        self.trigger_startup_update_check()
 
     def run(self):
         """Starts the system tray application."""

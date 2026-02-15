@@ -25,6 +25,12 @@ def reload_constants():
 # Perform initial load
 reload_constants()
 
+# Project Info
+VERSION = "0.0.1"
+GITHUB_ORG = "fastfingertips"
+GITHUB_REPO = "lastfm-rpc"
+GITHUB_RELEASES_URL = f"https://api.github.com/repos/{GITHUB_ORG}/{GITHUB_REPO}/releases/latest"
+
 # Discord Configuration
 CLIENT_ID = '702984897496875072'
 APP_NAME = "Last.fm Discord Rich Presence"

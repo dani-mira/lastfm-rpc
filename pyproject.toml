@@ -1,0 +1,34 @@
+[project]
+name = "lastfm-rpc"
+version = "0.0.1"
+description = "A localized Discord Rich Presence client for Last.fm, providing real-time music status and custom statistics."
+authors = [
+    { name = "fastfingertips", email = "fastfingertips@gmail.com" }
+]
+dependencies = [
+    "beautifulsoup4>=4.14.3",
+    "packaging>=26.0",
+    "pylast>=7.0.2",
+    "pypresence>=4.6.1",
+    "pystray>=0.19.5",
+    "pyyaml>=6.0.3",
+    "requests>=2.32.5",
+]
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+keywords = ["lastfm", "discord", "rpc", "rich-presence", "music", "tracking", "localized"]
+
+[project.urls]
+Repository = "https://github.com/fastfingertips/lastfm-rpc"
+Issues = "https://github.com/fastfingertips/lastfm-rpc/issues"
+
+[project.scripts]
+lastfm-rpc = "main:main"
+
+[tool.uv]
+managed = true
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
