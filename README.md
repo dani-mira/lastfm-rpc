@@ -43,16 +43,18 @@ All settings are stored in `config.yaml`.
 
 ### Advanced Usage
 
+#### CLI Commands
+Since the project uses `uv` entry points, you can also run it as a direct command:
+```bash
+uv run lastfm-rpc
+```
+
 #### Running without UV (Classic way)
 If you prefer standard Python:
 ```bash
 pip install .
 python main.py
 ```
-
-#### Batch Files (Windows)
-- `start.bat`: Runs the app in the background (no terminal).
-- `test_start.bat`: Runs the app with a terminal for logging.
 
 ### License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
