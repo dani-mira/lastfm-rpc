@@ -26,9 +26,19 @@ Issues = "https://github.com/fastfingertips/lastfm-rpc/issues"
 [project.scripts]
 lastfm-rpc = "main:main"
 
+[tool.hatch.build.targets.wheel]
+packages = ["api", "constants", "core", "utils", "translations", "assets"]
+
 [tool.uv]
 managed = true
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "imageio>=2.37.2",
+    "nuitka>=4.0.1",
+    "zstandard>=0.25.0",
+]

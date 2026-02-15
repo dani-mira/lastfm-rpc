@@ -168,7 +168,14 @@ class DiscordRPC:
         return artwork, large_image_lines
 
     def _prepare_buttons(self, username, artist, title, album):
-        """Compiles the RPC buttons."""
+        """
+        Compiles the RPC buttons.
+        
+        Alternative button templates for future use:
+        - Spotify: {"label": "Search on Spotify", "url": str(SPOTIFY_SEARCH_TEMPLATE.format(query=url_encoder(album)))}
+        - track_url: {"label": "View Track", "url": str(f"https://www.last.fm/music/{url_encoder(artist)}/{url_encoder(title)}")}
+        - user_url: {"label": "View Last.fm Profile", "url": str(LASTFM_USER_URL.format(username=username))}
+        """
         return [
             {"label": messenger('menu_focus_track'), "url": str(LASTFM_TRACK_URL_TEMPLATE.format(username=username, artist=url_encoder(artist), title=url_encoder(title)))},
             {"label": "YouTube Music", "url": str(YT_MUSIC_SEARCH_TEMPLATE.format(query=url_encoder(album)))}

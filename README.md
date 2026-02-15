@@ -56,5 +56,20 @@ pip install .
 python main.py
 ```
 
+### Building from Source (EXE)
+
+This project includes a modern build script using **Nuitka** to compile a standalone executable.
+
+1.  **Install Development Dependencies**:
+    ```bash
+    uv sync --dev
+    ```
+
+2.  **Run the Build Script**:
+    ```bash
+    python build.py
+    ```
+    The compiled `.exe` will be located in the `dist/` folder.
+
 ### License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
