@@ -29,7 +29,7 @@ def check_config():
         return False
     return True
 
-if __name__ == "__main__":
+def main():
     if check_config():
         from core.application import App
         try:
@@ -37,3 +37,6 @@ if __name__ == "__main__":
             app.run()
         except Exception as e:
             logging.critical(f"Application failed to start: {e}", exc_info=True)
+
+if __name__ == "__main__":
+    main()

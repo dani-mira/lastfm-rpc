@@ -1,45 +1,58 @@
-### Demo
+# Last.fm Discord Rich Presence (RPC)
 
+A modern, localized, and lightweight Discord Rich Presence client for Last.fm. Show off what you're listening to with custom statistics and artwork.
+
+### Features
+- **Real-time Sync**: Updates your Discord status as soon as you change tracks on Last.fm.
+- **Full Localization**: Support for English, Turkish, and Spanish.
+- **Dynamic Configuration**: Change settings (Username, API Keys, Language) on the fly without restarting.
+- **Smart Tracking**: Displays scrobble counts, artist stats, and "Loved" status.
+- **Auto-Update Checker**: Stay notified when a new version is released.
+- **Modern Stack**: Managed with `uv` for lightning-fast environment setup.
+
+### Demo
 https://github.com/user-attachments/assets/396ef42b-7929-4dac-b8d2-ce43172470f7
 
-### Clone the Repository
+---
 
-To clone the repository, use the following command:
+### Quick Start (Recommended)
 
+This project uses **uv** for the best experience. If you don't have it, install it from [astral.sh/uv](https://astral.sh/uv).
+
+1. **Clone the Repository**
+   ```bash
+   git clone https://github.com/fastfingertips/lastfm-rpc.git
+   cd lastfm-rpc
+   ```
+
+2. **Run the Application**
+   ```bash
+   uv run main.py
+   ```
+   *The app will automatically create a virtual environment, install dependencies, and prompt you with a Settings GUI if it's your first time.*
+
+---
+
+### Configuration & API Setup
+
+Upon first run, a Modern Settings GUI will appear. You will need:
+- **Last.fm API Key/Secret**: [Create them here](https://www.last.fm/api/account/create) or [view existing ones](https://www.last.fm/api/accounts).
+- **Last.fm Username**: Your public profile name.
+
+All settings are stored in `config.yaml`.
+
+### Advanced Usage
+
+#### Running without UV (Classic way)
+If you prefer standard Python:
 ```bash
-git clone https://github.com/fastfingertips/lastfm-rpc.git
+pip install .
+python main.py
 ```
 
-### Install Dependencies
+#### Batch Files (Windows)
+- `start.bat`: Runs the app in the background (no terminal).
+- `test_start.bat`: Runs the app with a terminal for logging.
 
-To install dependencies, use the `requirements.txt` file and run the following command:
-
-```bash
-pip install -r requirements.txt
-```
-
-### Create Last.fm API
-
-To create an API, visit the following link:
-
-[Create Last.fm API](https://www.last.fm/api/account/create)
-
-To view the APIs you have created, visit:
-
-[View Your APIs](https://www.last.fm/api/accounts)
-
-Place the API key and secret key you created in the `config.yaml` file. Also, enter your username in the same file.
-
-### Running the Application
-
-To start the application, you can use one of the following batch files:
-
-1. **start.bat**: This runs the application using `pythonw`, allowing you to close the terminal after starting the application.
-2. **test_start.bat**: This runs the application using `python`, allowing you to see the output and logs in the terminal.
-
-Navigate to the project directory and double-click the batch file of your choice:
-
-- `start.bat` for running the application without a terminal.
-- `test_start.bat` for running the application with terminal output.
-
-This setup will allow you to display your current listening activity on Last.fm as your Discord status.
+### License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
