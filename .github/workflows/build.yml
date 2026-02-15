@@ -38,6 +38,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: lastfm-rpc-${{ github.ref_name }}-windows.zip
+          files: dist/main.dist/lastfm-rpc-${{ github.ref_name }}-windows.zip
           draft: false
           prerelease: false
