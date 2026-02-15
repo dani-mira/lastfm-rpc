@@ -5,7 +5,8 @@ from api.lastfm.user.library import get_library_data
 from api.lastfm.user.profile import get_user_data
 
 from pypresence.presence import Presence
-from pypresence import ActivityType, StatusDisplayType, exceptions
+from pypresence import exceptions
+from pypresence.types import ActivityType, StatusDisplayType
 
 from utils.url_utils import url_encoder
 from utils.string_utils import messenger
@@ -181,11 +182,11 @@ class DiscordRPC:
             {"label": "YouTube Music", "url": str(YT_MUSIC_SEARCH_TEMPLATE.format(query=url_encoder(album)))}
         ]
 
-    def update_status(self, track, title, artist, album, time_remaining, username, artwork):
+    def update_status(self, track, title, artist, album, time_remaining, username, artwork, force=False):
         if len(title) < 2:
             title = title + ' '
 
-        if self.last_track == track and self.current_artist is not None:
+        if self.last_track == track and self.current_artist is not None and not force:
             return
 
         time_remaining_bool = time_remaining > 0
@@ -196,7 +197,10 @@ class DiscordRPC:
         if not user_data or not library_data:
             return
 
-        self.start_time = datetime.datetime.now().timestamp()
+        # Only reset start_time if it's a new track
+        if self.last_track != track:
+            self.start_time = datetime.datetime.now().timestamp()
+            
         self.last_track = track
         self.current_artist = artist
         self.artist_scrobbles = library_data["artist_count"]
@@ -220,7 +224,8 @@ class DiscordRPC:
             'small_text': small_text,
             'large_text': large_text,
             'large_image': 'artwork' if not time_remaining_bool and not album else artwork_asset,
-            'end': time_remaining + self.start_time if time_remaining_bool else None
+            'start': self.start_time,
+            'end': time_remaining + self.start_time if (time_remaining_bool and self.start_time is not None) else None
         }
 
         self._send_rpc_update(update_assets)

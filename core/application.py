@@ -91,8 +91,7 @@ class App:
         """Toggles a display option for the Discord RPC."""
         current = getattr(self.rpc, option)
         setattr(self.rpc, option, not current)
-        # Force update on next cycle by resetting track
-        self.rpc.last_track = None 
+        # Refresh UI
         if self.icon_tray:
             self.icon_tray.menu = self.setup_tray_menu()
             
@@ -113,8 +112,7 @@ class App:
         for opt in options:
             setattr(self.rpc, opt, opt == option)
             
-        # Force update
-        self.rpc.last_track = None 
+        # Refresh UI
         if self.icon_tray:
             self.icon_tray.menu = self.setup_tray_menu()
             
@@ -130,8 +128,7 @@ class App:
 
         self.rpc.show_artist_scrobbles_large = show_scrobbles
         
-        # Force update
-        self.rpc.last_track = None 
+        # Refresh UI
         if self.icon_tray:
             self.icon_tray.menu = self.setup_tray_menu()
             
@@ -231,7 +228,6 @@ class App:
                 
                 # Refresh UI and track
                 self.icon_tray.menu = self.setup_tray_menu()
-                self.rpc.last_track = None
                 self.current_track_name = messenger('no_track')
                 self.config_needs_reload = True
                 
@@ -270,7 +266,7 @@ class App:
             menu=self.setup_tray_menu()
         )
 
-    def _handle_active_track(self, current_track, data):
+    def _handle_active_track(self, current_track, data, is_forced_update=False):
         """Handle the case where a track is playing."""
         title, artist, album, artwork, time_remaining = data
         formatted_track = f"{artist} - {title}"
@@ -298,7 +294,8 @@ class App:
             str(album),
             time_remaining,
             project.USERNAME,
-            artwork
+            artwork,
+            force=is_forced_update
         )
         
         # 3. Refresh menu if changed
@@ -357,7 +354,7 @@ class App:
                 self.cached_track_data = (current_track, data)
         
         if data:
-            self._handle_active_track(current_track, data)
+            self._handle_active_track(current_track, data, is_forced_update)
             return project.TRACK_CHECK_INTERVAL
         else:
             self._handle_no_track()
