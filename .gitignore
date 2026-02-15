@@ -208,7 +208,7 @@ cython_debug/
 .pypirc
 
 # Marimo
-marimo/_static/
+marimo/_static/                      
 marimo/_lsp/
 __marimo__/
 
@@ -221,3 +221,5 @@ __marimo__/
 *.onefile-build/
 dist/
 nuitka-crash-report.xml
+logs/
+                               
